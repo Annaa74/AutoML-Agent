@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoML Agent - Unleash Your Data's Potential</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 350px; max-height: 450px; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        .nav-link { transition: background-color 0.2s ease, color 0.2s ease, border-left-color 0.2s ease; }
+        .nav-link.active { background-color: #e0f2fe; color: #1e40af; border-left-color: #2563eb; }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2563eb;
+        }
+        input:focus + .slider {
+            box-shadow: 0 0 1px #2563eb;
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        /* Auth Modal Specific Styles */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+        .modal-content {
+            transform: translateY(-20px);
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            opacity: 0;
+        }
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Hero Section Gradient Animation */
+        .hero-gradient {
+            background: linear-gradient(135deg, #e0f2fe, #e3f2fd, #e1f5fe);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Interactive Card Effects */
+        .interactive-card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .interactive-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+
+    <!-- Intro Section (Landing Page) -->
+    <section id="intro-section" class="flex flex-col min-h-screen hero-gradient text-center">
+        <header class="py-4 px-8 flex justify-between items-center w-full max-w-7xl mx-auto">
+            <div class="text-3xl font-extrabold text-gray-900">AutoML Agent</div>
+            <div class="space-x-4">
+                <button id="intro-login-button" class="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 font-semibold hover:bg-blue-50 transition-colors">Login</button>
+                <button id="intro-signup-button" class="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-md">Sign Up</button>
+            </div>
+        </header>
+
+        <div class="flex-grow flex items-center justify-center py-16 md:py-24">
+            <div class="max-w-4xl px-4">
+                <h1 class="text-5xl md:text-6xl font-extrabold leading-tight text-gray-900 mb-6">
+                    Automate Your ML. <span class="text-blue-600">Accelerate Innovation.</span>
+                </h1>
+                <p class="text-xl md:text-2xl text-gray-700 mb-10 leading-relaxed">
+                    Unleash the power of machine learning without the complexity. Our AI-powered agent understands your goals in plain language, building and deploying the perfect model for your data automatically. Spend less time coding, more time innovating.
+                </p>
+                <button id="intro-get-started-button" class="px-10 py-4 bg-blue-600 text-white font-bold text-xl rounded-xl shadow-lg hover:bg-blue-700 transition-colors transform hover:scale-105">
+                    Get Started Now
+                </button>
+            </div>
+        </div>
+
+        <div class="w-full bg-white py-12">
+            <div class="container mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="p-6 rounded-lg shadow-md border border-gray-200 bg-gray-50 interactive-card">
+                    <div class="text-5xl mb-4">💬</div>
+                    <h3 class="font-bold text-xl text-gray-900 mb-2">Natural Language Interface</h3>
+                    <p class="text-gray-600">Describe your ML task in plain English. Our agent processes your request and translates it into an actionable machine learning pipeline. No coding required to get started.</p>
+                </div>
+                <div class="p-6 rounded-lg shadow-md border border-gray-200 bg-gray-50 interactive-card">
+                    <div class="text-5xl mb-4">⚡</div>
+                    <h3 class="font-bold text-xl text-gray-900 mb-2">Blazing Fast Model Deployment</h3>
+                    <p class="text-gray-600">From raw data to a fully trained and deployed API endpoint in minutes, not days. Get your models into production faster than ever before.</p>
+                </div>
+                <div class="p-6 rounded-lg shadow-md border border-gray-200 bg-gray-50 interactive-card">
+                    <div class="text-5xl mb-4">🎯</div>
+                    <h3 class="font-bold text-xl text-gray-900 mb-2">Optimal Model Selection</h3>
+                    <p class="text-gray-600">Our advanced AutoML engine automatically explores thousands of algorithms and hyperparameters to find the best-performing model tailored to your specific data and goals.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- New: How it Works - Simplified Section -->
+        <div class="w-full bg-gray-100 py-16">
+            <div class="container mx-auto px-4">
+                <h2 class="text-4xl font-extrabold text-gray-900 mb-12">Your Path to AI: Simple Steps</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                    <div class="flex flex-col items-center p-6 bg-white rounded-lg shadow-md border border-gray-200 interactive-card">
+                        <div class="text-6xl mb-6">1️⃣</div>
+                        <h3 class="font-bold text-2xl text-blue-700 mb-3">You Speak Your Goal</h3>
+                        <p class="text-gray-700 text-lg">Upload your data and tell our Agent what you want to predict in natural language. "Predict house prices" or "Classify customer reviews" – it's that simple.</p>
+                    </div>
+                    <div class="flex flex-col items-center p-6 bg-white rounded-lg shadow-md border border-gray-200 interactive-card">
+                        <div class="text-6xl mb-6">2️⃣</div>
+                        <h3 class="font-bold text-2xl text-blue-700 mb-3">We Automate the ML</h3>
+                        <p class="text-gray-700 text-lg">Our intelligent system handles everything: data cleaning, feature engineering, selecting the right algorithms, and fine-tuning. It's the "magic" behind the scenes.</p>
+                    </div>
+                    <div class="flex flex-col items-center p-6 bg-white rounded-lg shadow-md border border-gray-200 interactive-card">
+                        <div class="text-6xl mb-6">3️⃣</div>
+                        <h3 class="font-bold text-2xl text-blue-700 mb-3">Get Your Model API</h3>
+                        <p class="text-gray-700 text-lg">Receive a high-performing machine learning model, instantly available as an API endpoint, ready to integrate into your applications or business processes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- New: Who is this for? Section -->
+        <div class="w-full bg-white py-16">
+            <div class="container mx-auto px-4">
+                <h2 class="text-4xl font-extrabold text-gray-900 mb-12">Who Can Benefit from AutoML Agent?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+                    <div class="text-left space-y-6">
+                        <div class="p-6 bg-blue-50 rounded-lg shadow-sm border border-blue-200 interactive-card">
+                            <h3 class="font-bold text-xl text-blue-800 mb-2 flex items-center"><span class="text-2xl mr-3">💼</span> Business Analysts & Managers</h3>
+                            <p class="text-gray-700">Gain powerful predictive insights without needing to code. Make data-driven decisions faster and identify key trends or opportunities in your business operations.</p>
+                        </div>
+                        <div class="p-6 bg-blue-50 rounded-lg shadow-sm border border-blue-200 interactive-card">
+                            <h3 class="font-bold text-xl text-blue-800 mb-2 flex items-center"><span class="text-2xl mr-3">💡</span> Innovators & Startups</h3>
+                            <p class="text-gray-700">Rapidly prototype and deploy AI solutions. Test new ideas quickly, iterate efficiently, and bring your vision to life without heavy initial investments in ML expertise.</p>
+                        </div>
+                    </div>
+                    <div class="text-left space-y-6">
+                        <div class="p-6 bg-blue-50 rounded-lg shadow-sm border border-blue-200 interactive-card">
+                            <h3 class="font-bold text-xl text-blue-800 mb-2 flex items-center"><span class="text-2xl mr-3">👩‍💻</span> Data Scientists & ML Engineers</h3>
+                            <p class="text-gray-700">Automate the tedious, repetitive parts of the ML workflow (data prep, hyperparameter tuning). Focus your valuable time on complex problem-solving, feature engineering, and model interpretation.</p>
+                        </div>
+                        <div class="p-6 bg-blue-50 rounded-lg shadow-sm border border-blue-200 interactive-card">
+                            <h3 class="font-bold text-xl text-blue-800 mb-2 flex items-center"><span class="text-2xl mr-3">💻</span> Software Developers</h3>
+                            <p class="text-gray-700">Effortlessly integrate powerful ML capabilities into your applications with ready-to-use API endpoints. Enhance your software with predictive features without deep ML knowledge.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: What Our Users Say (Testimonials Section) -->
+        <div class="w-full bg-gray-100 py-16">
+            <div class="container mx-auto px-4">
+                <h2 class="text-4xl font-extrabold text-gray-900 mb-12">What Our Users Say</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Testimonial 1 -->
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center text-center interactive-card">
+                        <img src="https://placehold.co/80x80/bae6fd/2563eb?text=JD" alt="User Avatar" class="w-20 h-20 rounded-full mb-4 ring-2 ring-blue-400">
+                        <p class="text-lg text-gray-700 italic mb-4">"AutoML Agent has transformed our data analysis. We're now deploying predictive models in hours, not weeks. The natural language interface is a game-changer!"</p>
+                        <p class="font-semibold text-blue-700">- Jane Doe, Senior Data Analyst</p>
+                        <div class="flex mt-2 text-yellow-500">
+                            <span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span>
+                        </div>
+                    </div>
+                    <!-- Testimonial 2 -->
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center text-center interactive-card">
+                        <img src="https://placehold.co/80x80/d1e7dd/155724?text=AM" alt="User Avatar" class="w-20 h-20 rounded-full mb-4 ring-2 ring-green-400">
+                        <p class="text-lg text-gray-700 italic mb-4">"As a startup, we needed to move fast. This tool lets us quickly build and test ML features without a dedicated data science team. Highly recommend!"</p>
+                        <p class="font-semibold text-green-700">- Alex Miller, CEO of InnovateX</p>
+                        <div class="flex mt-2 text-yellow-500">
+                            <span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">☆</span>
+                        </div>
+                    </div>
+                    <!-- Testimonial 3 -->
+                    <div class="bg-white p-8 rounded-xl shadow-lg border border-gray-200 flex flex-col items-center text-center interactive-card">
+                        <img src="https://placehold.co/80x80/fef3c7/b45309?text=LS" alt="User Avatar" class="w-20 h-20 rounded-full mb-4 ring-2 ring-yellow-400">
+                        <p class="text-lg text-gray-700 italic mb-4">"Finally, an AutoML platform that truly simplifies the process. It handles all the complex configurations, letting me focus on the business problem."</p>
+                        <p class="font-semibold text-yellow-700">- Lisa Smith, Product Manager</p>
+                        <div class="flex mt-2 text-yellow-500">
+                            <span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span><span class="text-xl">★</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="bg-gray-800 py-6 text-center text-gray-300 text-sm">
+            <p>&copy; 2025 AutoML Agent. All rights reserved.</p>
+            <p class="mt-1">Powered by intelligent automation.</p>
+        </footer>
+    </section>
+
+    <!-- Authentication Modal -->
+    <div id="auth-modal" class="modal-overlay fixed inset-0 flex items-center justify-center p-4 z-50 hidden">
+        <div class="modal-content bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center relative">
+            <button id="auth-modal-close-button" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">
+                &times;
+            </button>
+            <h2 id="auth-modal-title" class="text-3xl font-bold text-gray-900 mb-6">Login to AutoML Agent</h2>
+            <p class="text-lg text-gray-600 mb-8">Enter your credentials to access your dashboard and projects.</p>
+            
+            <div class="space-y-4">
+                <input type="text" id="username-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 text-gray-800" placeholder="Username">
+                <input type="password" id="password-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 text-gray-800" placeholder="Password">
+                
+                <button id="modal-submit-button" class="w-full px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors text-lg">
+                    Login
+                </button>
+            </div>
+            <p class="mt-6 text-gray-700">
+                <span id="auth-switch-text">Don't have an account?</span> 
+                <button id="auth-switch-button" class="text-blue-600 hover:underline font-medium">Sign Up</button>
+            </p>
+            <p id="auth-message" class="mt-4 text-sm text-red-600 hidden"></p>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Modal for Copy Confirmation -->
+    <div id="custom-alert" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+            <p id="alert-message" class="text-lg font-semibold text-gray-800 mb-4"></p>
+            <button id="alert-ok-button" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">OK</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Authentication related elements
+            const introSection = document.getElementById('intro-section');
+            const authModal = document.getElementById('auth-modal');
+            const authModalTitle = document.getElementById('auth-modal-title');
+            const authSwitchText = document.getElementById('auth-switch-text');
+            const authSwitchButton = document.getElementById('auth-switch-button');
+            const modalSubmitButton = document.getElementById('modal-submit-button');
+            const authModalCloseButton = document.getElementById('auth-modal-close-button');
+
+            const usernameInput = document.getElementById('username-input');
+            const passwordInput = document.getElementById('password-input');
+            const authMessage = document.getElementById('auth-message');
+
+            const introLoginButton = document.getElementById('intro-login-button');
+            const introSignupButton = document.getElementById('intro-signup-button');
+            const introGetStartedButton = document.getElementById('intro-get-started-button');
+
+            // Custom Alert elements
+            const customAlert = document.getElementById('custom-alert');
+            const alertMessage = document.getElementById('alert-message');
+            const alertOkButton = document.getElementById('alert-ok-button');
+
+            // --- Utility Functions ---
+            function showAlert(message) {
+                alertMessage.textContent = message;
+                customAlert.classList.remove('hidden');
+            }
+
+            alertOkButton.addEventListener('click', () => {
+                customAlert.classList.add('hidden');
+            });
+
+            function showAuthModal(mode = 'login') {
+                authModal.classList.add('active'); // For transition effect
+                authModal.classList.remove('hidden');
+                usernameInput.value = '';
+                passwordInput.value = '';
+                authMessage.classList.add('hidden'); // Clear any previous messages
+
+                if (mode === 'login') {
+                    authModalTitle.textContent = 'Login to AutoML Agent';
+                    modalSubmitButton.textContent = 'Login';
+                    authSwitchText.textContent = "Don't have an account?";
+                    authSwitchButton.textContent = 'Sign Up';
+                    modalSubmitButton.dataset.mode = 'login';
+                } else { // signup mode
+                    authModalTitle.textContent = 'Sign Up for AutoML Agent';
+                    modalSubmitButton.textContent = 'Sign Up';
+                    authSwitchText.textContent = "Already have an account?";
+                    authSwitchButton.textContent = 'Login';
+                    modalSubmitButton.dataset.mode = 'signup';
+                }
+            }
+
+            function hideAuthModal() {
+                authModal.classList.add('hidden');
+                authModal.classList.remove('active');
+            }
+
+            // Function to get CSRF token from the hidden input (for Django)
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            const csrftoken = getCookie('csrftoken');
+
+            // --- Event Listeners for Authentication ---
+            introLoginButton.addEventListener('click', () => showAuthModal('login'));
+            introSignupButton.addEventListener('click', () => showAuthModal('signup'));
+            introGetStartedButton.addEventListener('click', () => showAuthModal('signup')); // Call-to-action defaults to signup
+
+            authModalCloseButton.addEventListener('click', hideAuthModal);
+
+            authSwitchButton.addEventListener('click', () => {
+                const currentMode = modalSubmitButton.dataset.mode;
+                showAuthModal(currentMode === 'login' ? 'signup' : 'login');
+            });
+
+            modalSubmitButton.addEventListener('click', async () => {
+                const username = usernameInput.value;
+                const password = passwordInput.value;
+                const mode = modalSubmitButton.dataset.mode;
+
+                if (!username || !password) {
+                    authMessage.classList.remove('hidden');
+                    authMessage.textContent = `Please enter both username and password to ${mode}.`;
+                    return;
+                }
+
+                try {
+                    const endpoint = mode === 'login' ? '/api/login/' : '/api/signup/';
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken,
+                        },
+                        body: JSON.stringify({ username: username, password: password }),
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        authMessage.classList.add('hidden');
+                        if (data.redirect_url) {
+                            window.location.href = data.redirect_url; // Redirect on successful login
+                        } else {
+                            showAlert(data.message || 'Action successful! Please proceed to login.');
+                            showAuthModal('login'); // For signup success, suggest login
+                        }
+                    } else {
+                        authMessage.classList.remove('hidden');
+                        authMessage.textContent = data.message || `${mode} failed. Please try again.`;
+                    }
+                } catch (error) {
+                    console.error(`${mode} error:`, error);
+                    authMessage.classList.remove('hidden');
+                    authMessage.textContent = 'Network error or server unavailable.';
+                }
+            });
+
+            // Initial view is always the intro page, so it's always visible.
+            // No need to explicitly show/hide sections as they are now separate HTML files.
+        });
+    </script>
+</body>
+</html>
