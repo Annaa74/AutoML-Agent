@@ -1,0 +1,49 @@
+# deployments/docker-compose.yml
+version: '3.8'
+
+services:
+  # Django Frontend Service
+  frontend:
+    build:
+      context: ./frontend/automl_frontend # Path to your Django project root
+      dockerfile: Dockerfile_frontend # You'll create this Dockerfile below
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./frontend/automl_frontend:/app # Mount the Django project code
+      - static_volume:/app/staticfiles # Volume for static files
+    depends_on:
+      - backend # Frontend depends on backend being available (for APIs)
+    environment:
+      # Django settings here (e.g., SECRET_KEY, DEBUG=False in production)
+      - DJANGO_SETTINGS_MODULE=automl_frontend.settings
+      - PYTHONUNBUFFERED=1
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+      # In production, replace runserver with Gunicorn:
+      # "gunicorn automl_frontend.wsgi:application --bind 0.0.0.0:8000"
+
+  # Flask Backend Service
+  backend:
+    build:
+      context: ./backend # Path to your Flask backend root
+      dockerfile: Dockerfile # Refers to backend/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app # Mount the backend code
+      - ./shared:/app/shared # Mount shared utilities
+      - ./data:/app/uploads # Volume for uploaded data (temporary)
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development # Set to production in production
+      - PYTHONUNBUFFERED=1
+    command: python app.py
+    # In production, use Gunicorn:
+    # command: gunicorn --config /app/deployments/gunicorn.conf.py app:app # Adjust path if needed
+
+volumes:
+  static_volume: # For Django static files
+  data: # For temporary uploaded dataset files

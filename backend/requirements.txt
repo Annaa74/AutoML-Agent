@@ -1,0 +1,10 @@
+# backend/requirements.txt
+Flask==2.3.3
+Flask-CORS==3.0.10
+# Add other dependencies for AutoML engines and LLM later
+# For example:
+# auto-sklearn==0.15.0
+# pycaret==3.2.0
+# h2o==3.40.0.1
+# transformers==4.38.1 # For LLM integrations like Flan-T5
+# torch==2.2.1 # Or tensorflow if using TF models
