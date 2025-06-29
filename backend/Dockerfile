@@ -16,7 +16,7 @@ RUN pip install -r requirements.txt
 
 # Copy the rest of the application code
 COPY backend/ .
-COPY shared/ /app/shared/ # Copy shared utilities into the backend container
+# COPY shared/ /app/shared/ # Copy shared utilities into the backend container
 
 # Expose the port the app runs on
 EXPOSE 5000

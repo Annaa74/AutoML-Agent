@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Project - AutoML Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 350px; max-height: 450px; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        .nav-link { transition: background-color 0.2s ease, color 0.2s ease, border-left-color 0.2s ease; }
+        .nav-link.active { background-color: #e0f2fe; color: #1e40af; border-left-color: #2563eb; }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2563eb;
+        }
+        input:focus + .slider {
+            box-shadow: 0 0 1px #2563eb;
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        /* New: Interactive Model Card for selection */
+        .interactive-model-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .interactive-model-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        .interactive-model-card.selected {
+            border-color: #2563eb; /* Blue border for selected */
+            background-color: #e0f2fe; /* Light blue background */
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.5); /* Blue glow */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+    <header class="bg-white shadow-sm py-4 z-10">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <div class="text-2xl font-bold text-gray-900">AutoML Agent</div>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-700 hidden sm:block">Welcome, <span class="font-semibold" id="logged-in-username">{{ current_username }}</span>!</span>
+                <button id="logout-button" class="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors shadow-sm">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1">
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 bg-white shadow-md p-6 border-r border-gray-200 flex flex-col">
+            <nav class="space-y-3 flex-grow">
+                <a href="{% url 'dashboard' %}" id="nav-dashboard" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-gray-50 border-l-4 border-transparent font-medium">
+                    <span class="mr-3 text-lg">📊</span> Dashboard
+                </a>
+                <a href="{% url 'new_project' %}" id="nav-new-project" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-gray-50 active border-l-4 border-blue-600 font-medium">
+                    <span class="mr-3 text-lg">✨</span> New Project
+                </a>
+                <a href="{% url 'my_models' %}" id="nav-my-models" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-gray-50 border-l-4 border-transparent font-medium">
+                    <span class="mr-3 text-lg">📦</span> My Models
+                </a>
+                <a href="{% url 'data_management' %}" id="nav-data-management" class="nav-link flex items-center p-3 rounded-lg text-gray-700 hover:bg-gray-50 border-l-4 border-transparent font-medium">
+                    <span class="mr-3 text-lg">🗄️</span> Data Management
+                </a>
+            </nav>
+            <div class="mt-8 pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-400">Version 1.0.0</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area - New Project Specific -->
+        <main class="flex-1 p-6 md:p-8 overflow-y-auto">
+            <section id="new-project-content" class="content-section bg-white p-8 rounded-lg shadow-lg">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">New Model Training</h2>
+                <p class="text-lg text-gray-600 mb-6">Initiate an automated machine learning training pipeline. Simply upload your dataset, describe your task in natural language, and let the AutoML Agent do the rest!</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <label for="dataset-upload" class="block text-gray-700 text-sm font-semibold mb-2">Upload Dataset (CSV, Excel, etc.):</label>
+                        <input type="file" id="dataset-upload" class="block w-full text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font:semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" accept=".csv, .xlsx, .xls">
+                        <p class="mt-1 text-sm text-gray-500">Max file size: 50MB. Supported formats: .csv, .xlsx, .xls</p>
+                    </div>
+
+                    <!-- Dataset Preview Area -->
+                    <div id="dataset-preview-area" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                        <h3 class="text-xl font-semibold text-blue-800 mb-2">Dataset Preview:</h3>
+                        <p class="text-gray-700 mb-2">File: <span id="preview-filename" class="font-medium"></span> (<span id="preview-filesize"></span>)</p>
+                        <div class="bg-white p-3 rounded-md text-gray-700 font-mono text-sm border border-gray-300 overflow-auto max-h-40">
+                            <pre id="preview-content">Loading preview...</pre>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="prompt-input" class="block text-gray-700 text-sm font-semibold mb-2">Natural Language Prompt:</label>
+                        <textarea id="prompt-input" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 text-gray-800 resize-y" placeholder="e.g., 'Predict customer churn based on historical transaction data, optimizing for recall.' or 'Build a regression model to forecast quarterly sales using the last 5 years of sales figures.'"></textarea>
+                        <p class="mt-1 text-sm text-gray-500">Describe your ML task, target variable, and any specific requirements.</p>
+                    </div>
+
+                    <!-- Advanced Options Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <span class="text-gray-700 text-sm font-semibold">Advanced Options</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="advanced-options-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Advanced Options Section (Initially Hidden) -->
+                    <div id="advanced-options-panel" class="p-6 bg-gray-50 rounded-lg border border-gray-200 shadow-inner space-y-4 hidden">
+                        <div>
+                            <label for="model-type-preference" class="block text-gray-700 text-sm font-semibold mb-2">Model Type Preference:</label>
+                            <select id="model-type-preference" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                <option value="any">Any (AutoML decides)</option>
+                                <option value="classification">Classification</option>
+                                <option value="regression">Regression</option>
+                                <option value="time_series">Time Series</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="evaluation-metric" class="block text-gray-700 text-sm font-semibold mb-2">Primary Evaluation Metric:</label>
+                            <select id="evaluation-metric" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                <option value="auto">Auto (based on task)</option>
+                                <option value="accuracy">Accuracy (Classification)</option>
+                                <option value="f1_score">F1-Score (Classification)</option>
+                                <option value="rmse">RMSE (Regression)</option>
+                                <option value="mae">MAE (Regression)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="time-limit" class="block text-gray-700 text-sm font-semibold mb-2">Training Time Limit (minutes): <span id="time-limit-value">60</span></label>
+                            <input type="range" id="time-limit" min="5" max="300" value="60" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div>
+                            <label for="validation-split" class="block text-gray-700 text-sm font-semibold mb-2">Validation Split Ratio: <span id="validation-split-value">0.2</span></label>
+                            <input type="range" id="validation-split" min="0.1" max="0.5" step="0.05" value="0.2" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <!-- New: Ensembling Option -->
+                        <div class="flex items-center justify-between py-2">
+                            <span class="text-gray-700 text-sm font-semibold">Enable Ensembling</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="ensemble-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Django CSRF Token (needed for logout, not for Flask API calls) -->
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+                    <button id="start-training-button" class="w-full md:w-auto px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors text-lg">
+                        Start Training
+                    </button>
+                </div>
+
+                <div id="training-status-area" class="mt-8 p-6 bg-gray-50 border border-gray-200 rounded-lg shadow-inner hidden">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Training Progress:</h3>
+                    
+                    <!-- Parsed ML Parameters Display -->
+                    <div id="parsed-params-display" class="p-3 bg-white rounded-md text-gray-700 font-medium border border-gray-300 mb-4 hidden">
+                        <p class="font-semibold text-blue-700 mb-1">LLM Parsed Parameters:</p>
+                        <p>Task Type: <span id="parsed-task-type">N/A</span></p>
+                        <p>Target Variable: <span id="parsed-target-variable">N/A</span></p>
+                        <p>Optimization Metric: <span id="parsed-optimization-metric">N/A</span></p>
+                        <p>Time Limit: <span id="parsed-time-limit">N/A</span> min</p>
+                        <p>Validation Split: <span id="parsed-validation-split">N/A</span></p>
+                        <p>Ensembling: <span id="parsed-ensembling">N/A</span></p>
+                        <p>Key Features for Analysis: <span id="parsed-key-features">N/A</span></p> <!-- New: Feature Importance Display -->
+                    </div>
+
+                    <p id="status-message" class="text-gray-700 mb-4 font-medium">Awaiting input...</p>
+                    
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                        <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                    </div>
+
+                    <div id="loading-spinner" class="hidden flex items-center justify-center space-x-2 my-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span class="text-blue-600 text-lg">Working on it...</span>
+                    </div>
+
+                    <!-- Simulated Model Selection Area -->
+                    <div id="model-selection-area" class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                        <h3 class="text-xl font-semibold text-yellow-800 mb-3">Model Selection:</h3>
+                        <p class="text-gray-700 mb-4">Our AutoML engine has identified the following top-performing algorithms. Please choose one to finalize deployment, or opt for an ensemble model:</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" id="model-options">
+                            <!-- Model options will be populated by JS -->
+                        </div>
+
+                        <div class="flex justify-end space-x-4">
+                            <button id="select-model-button" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm hidden">Select & Continue</button>
+                            <button id="ensemble-models-button" class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors shadow-sm">Ensemble & Continue</button>
+                        </div>
+                    </div>
+
+
+                    <div id="model-output" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                        <h3 class="text-xl font-semibold text-blue-800 mb-2">🎉 Deployed Model API Endpoint:</h3>
+                        <p id="api-endpoint-display" class="mt-2 p-3 bg-white rounded-md text-gray-700 font-mono break-all text-sm border border-gray-300"></p>
+                        <div class="flex space-x-4 mt-4">
+                            <button id="copy-api-button" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm">Copy to Clipboard</button>
+                            <button id="download-model-button" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors shadow-sm">Download Model</button>
+                        </div>
+                        
+                        <!-- New: Model Training Summary -->
+                        <div id="model-summary" class="mt-6 p-4 bg-white rounded-md text-gray-700 border border-gray-300">
+                            <h4 class="font-semibold text-blue-800 mb-2">Model Training Summary:</h4>
+                            <p id="summary-content" class="text-sm leading-relaxed"></p>
+                            <h5 class="font-semibold text-blue-800 mt-4 mb-2">Key Features & Importance:</h5>
+                            <ul id="feature-importance-list" class="list-disc list-inside text-sm">
+                                <!-- Feature importance list will be populated by JS -->
+                            </ul>
+                        </div>
+                    </div>
+                    <div id="error-message" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 hidden">
+                        <h3 class="font-semibold mb-2">⚠️ Error:</h3>
+                        <p id="error-details" class="text-sm"></p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="bg-gray-800 mt-auto py-6 text-center text-gray-300 text-sm">
+        <p>&copy; 2025 AutoML Agent. All rights reserved.</p>
+    </footer>
+
+    <!-- Custom Alert/Modal for Copy Confirmation -->
+    <div id="custom-alert" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+            <p id="alert-message" class="text-lg font-semibold text-gray-800 mb-4"></p>
+            <button id="alert-ok-button" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">OK</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const logoutButton = document.getElementById('logout-button');
+            const datasetUpload = document.getElementById('dataset-upload');
+            const datasetPreviewArea = document.getElementById('dataset-preview-area');
+            const previewFilename = document.getElementById('preview-filename');
+            const previewFilesize = document.getElementById('preview-filesize');
+            const previewContent = document.getElementById('preview-content');
+            const startTrainingButton = document.getElementById('start-training-button');
+            const trainingStatusArea = document.getElementById('training-status-area');
+            const parsedParamsDisplay = document.getElementById('parsed-params-display');
+            const parsedTaskType = document.getElementById('parsed-task-type');
+            const parsedTargetVariable = document.getElementById('parsed-target-variable');
+            const parsedOptimizationMetric = document.getElementById('parsed-optimization-metric');
+            const parsedTimeLimit = document.getElementById('parsed-time-limit'); 
+            const parsedValidationSplit = document.getElementById('parsed-validation-split');
+            const parsedEnsembling = document.getElementById('parsed-ensembling');
+            const parsedKeyFeatures = document.getElementById('parsed-key-features'); // New element for feature importance
+            const statusMessage = document.getElementById('status-message');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const modelOutput = document.getElementById('model-output');
+            const apiEndpointDisplay = document.getElementById('api-endpoint-display');
+            const copyApiButton = document.getElementById('copy-api-button');
+            const downloadModelButton = document.getElementById('download-model-button');
+            const errorMessageDiv = document.getElementById('error-message');
+            const errorDetails = document.getElementById('error-details');
+            const progressBar = document.getElementById('progress-bar');
+            const modelSummary = document.getElementById('model-summary');
+            const summaryContent = document.getElementById('summary-content');
+            const featureImportanceList = document.getElementById('feature-importance-list'); // New element for feature importance list
+
+            // Advanced Options Toggle elements
+            const advancedOptionsToggle = document.getElementById('advanced-options-toggle');
+            const advancedOptionsPanel = document.getElementById('advanced-options-panel');
+            const timeLimitInput = document.getElementById('time-limit');
+            const timeLimitValueSpan = document.getElementById('time-limit-value');
+            const validationSplitInput = document.getElementById('validation-split');
+            const validationSplitValueSpan = document.getElementById('validation-split-value');
+            const ensembleToggle = document.getElementById('ensemble-toggle');
+
+            // Model Selection Elements
+            const modelSelectionArea = document.getElementById('model-selection-area');
+            const modelOptionsDiv = document.getElementById('model-options');
+            const selectModelButton = document.getElementById('select-model-button');
+            const ensembleModelsButton = document.getElementById('ensemble-models-button');
+
+            let currentJobId = null;
+            let pollIntervalId = null;
+            let modelSelectionPhaseTriggered = false;
+            let selectedModelAlgorithm = ''; 
+            let ensemblingEnabled = false; // State from initial form submission
+
+            // Custom Alert elements
+            const customAlert = document.getElementById('custom-alert');
+            const alertMessage = document.getElementById('alert-message');
+            const alertOkButton = document.getElementById('alert-ok-button');
+
+            // Define showAlert function here. It will use customAlert and alertMessage.
+            // Check for their existence inside the function, or ensure they are always valid elements.
+            function showAlert(message) {
+                if (alertMessage && customAlert) {
+                    alertMessage.textContent = message;
+                    customAlert.classList.remove('hidden');
+                } else {
+                    console.error("ERROR: Custom alert components (alertMessage or customAlert) not found when calling showAlert.");
+                    // Fallback to native alert if it's a critical failure and acceptable:
+                    // alert(message);
+                }
+            }
+
+            // Only attach listener to alertOkButton if the element exists
+            if (alertOkButton) {
+                alertOkButton.addEventListener('click', () => {
+                    if (customAlert) {
+                        customAlert.classList.add('hidden');
+                    }
+                });
+            } else {
+                console.error("ERROR: Element with ID 'alert-ok-button' not found in the DOM. Alert dismissal might not work.");
+            }
+
+            // Handle range slider value display
+            timeLimitInput.addEventListener('input', () => {
+                timeLimitValueSpan.textContent = timeLimitInput.value;
+            });
+            validationSplitInput.addEventListener('input', () => {
+                validationSplitValueSpan.textContent = validationSplitInput.value;
+            });
+
+            // Toggle Advanced Options Panel
+            advancedOptionsToggle.addEventListener('change', () => {
+                advancedOptionsPanel.classList.toggle('hidden', !advancedOptionsToggle.checked);
+            });
+
+            // Dataset Upload Preview
+            datasetUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    previewFilename.textContent = file.name;
+                    previewFilesize.textContent = `${(file.size / 1024).toFixed(2)} KB`;
+                    datasetPreviewArea.classList.remove('hidden');
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target.result;
+                        // Display first few lines for preview
+                        previewContent.textContent = text.split('\n').slice(0, 5).join('\n') + (text.split('\n').length > 5 ? '\n...' : '');
+                    };
+                    reader.onerror = () => {
+                        previewContent.textContent = 'Could not read file for preview.';
+                    };
+                    reader.readAsText(file.slice(0, 1024)); // Read first 1KB for preview
+                } else {
+                    datasetPreviewArea.classList.add('hidden');
+                }
+            });
+
+            // Function to get CSRF token from cookies (only for Django endpoints like logout)
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            const csrftoken = getCookie('csrftoken'); // Get Django CSRF token
+
+            // --- Event Listeners ---
+            logoutButton.addEventListener('click', async () => {
+                try {
+                    // This is a Django endpoint, so CSRF token and credentials are required
+                    const response = await fetch('/api/logout/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken, // Django's CSRF token
+                        },
+                        credentials: 'include' // Include session and CSRF cookies
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        showAlert('You have been logged out.');
+                        window.location.href = data.redirect_url; // Redirect to intro page
+                    } else {
+                        showAlert(data.message || 'Logout failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    showAlert('Network error during logout.');
+                }
+            });
+
+            startTrainingButton.addEventListener('click', async () => {
+                const prompt = document.getElementById('prompt-input').value;
+                const datasetFile = document.getElementById('dataset-upload').files[0];
+                const modelTypePreference = document.getElementById('model-type-preference').value;
+                const evaluationMetric = document.getElementById('evaluation-metric').value;
+                const timeLimit = timeLimitInput.value;
+                const validationSplit = validationSplitInput.value;
+                ensemblingEnabled = ensembleToggle.checked; // Get ensembling status from toggle
+
+                if (!prompt.trim()) {
+                    errorMessageDiv.classList.remove('hidden');
+                    errorDetails.textContent = 'Please provide a natural language prompt.';
+                    return;
+                }
+                if (!datasetFile) {
+                    errorMessageDiv.classList.remove('hidden');
+                    errorDetails.textContent = 'Please upload a dataset file.';
+                    return;
+                }
+
+                // Reset UI for new training
+                trainingStatusArea.classList.remove('hidden');
+                modelOutput.classList.add('hidden');
+                errorMessageDiv.classList.add('hidden');
+                parsedParamsDisplay.classList.add('hidden'); // Hide parsed params until received
+                modelSelectionArea.classList.add('hidden'); // Hide model selection
+                progressBar.style.width = '0%'; // Reset progress bar
+                statusMessage.textContent = 'Initiating model training...';
+                loadingSpinner.classList.remove('hidden');
+                startTrainingButton.disabled = true;
+                modelSelectionPhaseTriggered = false; // Reset phase trigger
+                selectedModelAlgorithm = ''; // Reset selected algorithm
+                featureImportanceList.innerHTML = ''; // Clear previous feature importance
+
+
+                const formData = new FormData();
+                formData.append('prompt', prompt);
+                formData.append('dataset_file', datasetFile);
+                
+                // Append advanced options if toggle is checked
+                if (advancedOptionsToggle.checked) {
+                    formData.append('model_type_preference', modelTypePreference);
+                    formData.append('evaluation_metric', evaluationMetric);
+                    formData.append('time_limit', timeLimit);
+                    formData.append('validation_split', validationSplit);
+                }
+                formData.append('ensemble_enabled', ensemblingEnabled); // Pass ensembling status to backend
+
+                try {
+                    // This fetch targets the Flask backend. No X-CSRFToken header needed here.
+                    const response = await fetch('http://localhost:5000/api/train', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include' 
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        errorMessageDiv.classList.remove('hidden');
+                        errorDetails.textContent = data.error || 'An unknown error occurred during training initiation.';
+                        loadingSpinner.classList.add('hidden');
+                        startTrainingButton.disabled = false;
+                        return;
+                    }
+
+                    currentJobId = data.job_id; // Store job ID
+                    statusMessage.textContent = `Training initiated. Job ID: ${currentJobId}. Polling for status...`;
+                    pollForModelStatus(currentJobId);
+
+                } catch (error) {
+                    errorMessageDiv.classList.remove('hidden');
+                    errorDetails.textContent = `Network or server error: ${error.message}`;
+                    loadingSpinner.classList.add('hidden');
+                    startTrainingButton.disabled = false;
+                }
+            });
+
+            // --- Polling Logic ---
+            async function pollForModelStatus(jobId) {
+                if (pollIntervalId) {
+                    clearInterval(pollIntervalId);
+                }
+
+                pollIntervalId = setInterval(async () => {
+                    try {
+                        const response = await fetch(`http://localhost:5000/api/status/${jobId}`, {
+                            credentials: 'include'
+                        });
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            clearInterval(pollIntervalId);
+                            errorMessageDiv.classList.remove('hidden');
+                            errorDetails.textContent = data.error || 'Failed to retrieve training status.';
+                            loadingSpinner.classList.add('hidden');
+                            startTrainingButton.disabled = false;
+                            return;
+                        }
+
+                        // Display Parsed ML Parameters once available
+                        if (data.automl_params) {
+                            parsedTaskType.textContent = data.automl_params.task_type || 'N/A';
+                            parsedTargetVariable.textContent = data.automl_params.target_variable || 'N/A';
+                            parsedOptimizationMetric.textContent = data.automl_params.optimization_metric || 'N/A';
+                            parsedTimeLimit.textContent = data.automl_params.time_limit !== undefined && data.automl_params.time_limit !== null ? data.automl_params.time_limit : 'N/A';
+                            parsedValidationSplit.textContent = data.automl_params.validation_split !== undefined && data.automl_params.validation_split !== null ? data.automl_params.validation_split : 'N/A';
+                            parsedEnsembling.textContent = data.automl_params.ensemble_enabled ? 'Enabled' : 'Disabled';
+                            parsedKeyFeatures.textContent = data.automl_params.key_features_identified || 'Not specified/Identified';
+                            parsedParamsDisplay.classList.remove('hidden');
+                        }
+
+
+                        statusMessage.textContent = `Status: ${data.status} (Progress: ${data.progress}%)`;
+                        progressBar.style.width = `${data.progress}%`;
+
+                        // Simulate model selection phase - now using top_models_info from backend
+                        if (data.progress >= 70 && data.status === 'awaiting model selection' && !modelSelectionPhaseTriggered && data.top_models_info && data.top_models_info.length > 0) {
+                            clearInterval(pollIntervalId); // Pause polling
+                            loadingSpinner.classList.add('hidden');
+                            progressBar.classList.add('hidden');
+                            statusMessage.textContent = 'Training completed initial models. Please select the best algorithm to finalize deployment:';
+                            modelSelectionArea.classList.remove('hidden');
+                            modelSelectionPhaseTriggered = true;
+
+                            modelOptionsDiv.innerHTML = ''; // Clear previous options
+                            data.top_models_info.forEach((algo) => {
+                                const card = document.createElement('div');
+                                card.className = 'interactive-model-card bg-white p-4 rounded-lg shadow-md border border-gray-200 cursor-pointer';
+                                card.innerHTML = `
+                                    <label class="flex flex-col items-center justify-center h-full text-center">
+                                        <input type="radio" name="selected_algo" value="${algo.value}" class="form-radio text-blue-600 h-5 w-5 mb-2">
+                                        <h4 class="font-bold text-lg text-gray-800 mb-1">${algo.name}</h4>
+                                        <p class="text-sm text-gray-600">Performance: <span class="font-semibold text-blue-700">${algo.performance}</span></p>
+                                        <p class="text-sm text-gray-600">Training Time: ${algo.time}</p>
+                                    </label>
+                                `;
+                                card.querySelector('input[type="radio"]').addEventListener('change', (e) => {
+                                    document.querySelectorAll('.interactive-model-card').forEach(c => c.classList.remove('selected'));
+                                    if (e.target.checked) {
+                                        card.classList.add('selected');
+                                    }
+                                });
+                                modelOptionsDiv.appendChild(card);
+                            });
+
+                            selectModelButton.classList.remove('hidden'); // Show select button
+                            selectModelButton.onclick = () => {
+                                const selectedAlgoInput = document.querySelector('input[name="selected_algo"]:checked');
+                                if (selectedAlgoInput) {
+                                    selectedModelAlgorithm = selectedAlgoInput.value;
+                                    resumeTrainingAfterSelection();
+                                } else {
+                                    showAlert('Please select an algorithm.');
+                                }
+                            };
+
+                            ensembleModelsButton.onclick = () => {
+                                selectedModelAlgorithm = 'Ensemble Model'; // Mark as ensemble
+                                // Note: ensemblingEnabled is already sent to backend with initial request.
+                                // This simply updates the frontend's 'selectedModelAlgorithm' for the summary.
+                                resumeTrainingAfterSelection();
+                            };
+
+                        } else if (data.status === 'completed') {
+                            clearInterval(pollIntervalId);
+                            loadingSpinner.classList.add('hidden');
+                            progressBar.classList.remove('hidden'); // Ensure progress bar is visible at 100%
+                            progressBar.style.width = '100%';
+                            statusMessage.textContent = 'Model training and deployment complete!';
+                            modelOutput.classList.remove('hidden');
+                            apiEndpointDisplay.textContent = data.api_endpoint;
+                            startTrainingButton.disabled = false;
+                            
+                            // Generate model summary
+                            let summaryText = `Your AutoML Agent has successfully built and deployed a powerful machine learning model!`;
+                            summaryText += ` Based on your prompt, the task was identified as a **${parsedTaskType.textContent}** aiming to predict the **'${parsedTargetVariable.textContent}'** variable, optimizing for **${parsedOptimizationMetric.textContent}**.`;
+                            
+                            if (data.selected_algorithm_name) { // Use actual selected algorithm name from backend
+                                summaryText += ` The engine explored various algorithms and finalized the deployment using a **${data.selected_algorithm_name}**.`;
+                            } else if (selectedModelAlgorithm) { // Fallback to frontend's selected if backend didn't specify
+                                summaryText += ` The engine explored various algorithms and finalized the deployment using a **${selectedModelAlgorithm}**.`;
+                            } else {
+                                summaryText += ` The engine automatically explored and selected the best algorithm for your data.`;
+                            }
+
+                            if (parsedEnsembling.textContent === 'Enabled') {
+                                summaryText += ` Ensembling techniques were applied to further boost the model's robustness and performance.`;
+                            } else {
+                                summaryText += ` No ensembling was explicitly applied for this model.`;
+                            }
+                            summaryText += ` This model trained in approximately **${data.model_training_time || 'N/A'} seconds** and achieved a final ${parsedOptimizationMetric.textContent} of **${data.final_metric_value || 'N/A'}**.`;
+                            summaryText += ` This model is now accessible via the provided API endpoint, ready for integration into your applications.`;
+                            summaryContent.textContent = summaryText;
+
+                            // Display Feature Importance (if provided by backend)
+                            featureImportanceList.innerHTML = '';
+                            if (data.feature_importance_values) {
+                                const sortedFeatures = Object.entries(data.feature_importance_values).sort(([, a], [, b]) => b - a);
+                                sortedFeatures.forEach(([feature, importance]) => {
+                                    const listItem = document.createElement('li');
+                                    listItem.textContent = `${feature}: ${ (importance * 100).toFixed(1)}%`; // Display as percentage
+                                    featureImportanceList.appendChild(listItem);
+                                });
+                            } else if (data.automl_params && data.automl_params.key_features_identified && data.automl_params.key_features_identified !== 'N/A') {
+                                // Fallback to LLM identified features if no precise values
+                                const featuresArray = data.automl_params.key_features_identified.split(',').map(f => f.trim());
+                                featuresArray.forEach(feature => {
+                                    const listItem = document.createElement('li');
+                                    listItem.textContent = `${feature}`;
+                                    featureImportanceList.appendChild(listItem);
+                                });
+                            } else {
+                                const listItem = document.createElement('li');
+                                listItem.textContent = 'Feature importance not available for this model.';
+                                featureImportanceList.appendChild(listItem);
+                            }
+
+
+                        } else if (data.status === 'failed') {
+                            clearInterval(pollIntervalId);
+                            loadingSpinner.classList.add('hidden');
+                            progressBar.classList.remove('hidden'); // Ensure progress bar visible for error
+                            progressBar.style.width = '100%';
+                            errorMessageDiv.classList.remove('hidden');
+                            errorDetails.textContent = `Training failed: ${data.error || 'No specific error message.'}`;
+                            startTrainingButton.disabled = false;
+                        }
+                    } catch (error) {
+                        clearInterval(pollIntervalId);
+                        errorMessageDiv.classList.remove('hidden');
+                        errorDetails.textContent = `Network or server error during polling: ${error.message}`;
+                        loadingSpinner.classList.add('hidden');
+                        startTrainingButton.disabled = false;
+                    }
+                }, 3000); // Poll every 3 seconds
+            }
+
+            function resumeTrainingAfterSelection() {
+                modelSelectionArea.classList.add('hidden');
+                progressBar.classList.remove('hidden');
+                loadingSpinner.classList.remove('hidden');
+                statusMessage.textContent = `Finalizing deployment with selected algorithm (${selectedModelAlgorithm})...`;
+                // Continue polling to reach 'completed' state
+                pollForModelStatus(currentJobId);
+            }
+
+            // --- Model Download ---
+            downloadModelButton.addEventListener('click', () => {
+                const modelData = {
+                    modelId: currentJobId,
+                    algorithm: selectedModelAlgorithm || 'AutoML Selected',
+                    summary: summaryContent.textContent,
+                    endpoint: apiEndpointDisplay.textContent,
+                    // In a real app, you'd fetch the actual model binary or a reference
+                    // For now, this is metadata about the model
+                    modelDetails: {
+                        taskType: parsedTaskType.textContent,
+                        targetVariable: parsedTargetVariable.textContent,
+                        optimizationMetric: parsedOptimizationMetric.textContent,
+                        timeLimit: parsedTimeLimit.textContent,
+                        validationSplit: parsedValidationSplit.textContent,
+                        ensemblingEnabled: parsedEnsembling.textContent === 'Enabled',
+                        keyFeaturesIdentified: parsedKeyFeatures.textContent,
+                        // Add more actual metrics if available from backend later
+                    },
+                    featureImportances: Array.from(featureImportanceList.children).map(li => li.textContent)
+                };
+                const blob = new Blob([JSON.stringify(modelData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `automl_agent_model_summary_${currentJobId}.json`; // Simulate downloading a JSON summary
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showAlert('Model metadata download simulated!');
+            });
+
+
+            copyApiButton.addEventListener('click', () => {
+                const textToCopy = apiEndpointDisplay.textContent;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showAlert('API endpoint copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    showAlert('Failed to copy. Please copy manually.');
+                });
+            });
+
+            // Highlight active navigation link
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                    link.classList.remove('border-transparent');
+                    link.classList.add('border-l-blue-600');
+                } else {
+                    link.classList.remove('active');
+                    link.classList.remove('border-l-blue-600');
+                    link.classList.add('border-transparent');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
