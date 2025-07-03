@@ -6,6 +6,7 @@ import os
 import random
 import uuid # For unique model filenames
 import json
+import threading # To run AutoML in a separate thread
 
 # PyCaret imports - dynamically import based on task type
 from pycaret.classification import setup as classification_setup
@@ -109,11 +110,9 @@ def _run_automl_pipeline(job_id: str, dataset_path: str, params: dict):
                 data=df,
                 target=params['target_variable'],
                 session_id=random.randint(1, 10000), # Reproducibility
-                train_size=1.0 - (params['validation_split'] if params['validation_split'] else 0.2), # Use all for training, validation split is for PyCaret's internal CV
-                # For time_series, you'd have different parameters like seasonal_period, fh etc.
-                silent=True, # Suppress verbose output
-                n_jobs=-1, # Use all available cores
-                # html=False # Disable HTML output for Jupyter if running headless
+                # Removed 'silent=True' and 'train_size' as they are incompatible with PyCaret 3.x
+                # PyCaret will handle internal data splitting for cross-validation by default
+                n_jobs=-1 # Use all available cores
             )
         except Exception as setup_e:
             raise ValueError(f"PyCaret setup failed: {setup_e}. Check target variable and data types.")
@@ -194,7 +193,8 @@ def _run_automl_pipeline(job_id: str, dataset_path: str, params: dict):
         # If ensembling was enabled from frontend, simulate blending
         if params['ensemble_enabled'] and params['task_type'] in ['classification', 'regression'] and len(best_models_list) >= 2:
             print(f"AutoML Engine: Attempting to blend models for job {job_id}")
-            # Create individual models before blending
+            # Create individual best models first to blend them
+            # For simplicity, blend a couple of the best ones
             models_to_blend = [pycaret_module['create_model'](algo) for algo in best_models_list[:3]] # Blend top 3
             final_model = pycaret_module['blend_models'](models_to_blend, optimize=pycaret_module['metric_name'])
             job_data['selected_algorithm_name'] = "Blended Ensemble Model"
@@ -294,7 +294,6 @@ def initiate_automl_training(job_id: str, dataset_path: str, params: dict):
     # For this demo, we run it in the same thread.
     # In production, use Celery: `task.apply_async(args=(job_id, dataset_path, params))`
     print(f"AutoML Engine: Kicking off _run_automl_pipeline for job {job_id}")
-    # Run in a separate thread/process if you want Flask to respond immediately
     import threading
     thread = threading.Thread(target=_run_automl_pipeline, args=(job_id, dataset_path, params))
     thread.start()

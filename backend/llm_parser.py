@@ -1,12 +1,47 @@
 # backend/llm_parser.py
 
-# Uncomment and install 'google-generativeai' if you want to use a live Gemini API
-import google.generativeai as genai
+import json # Needed if BART output is JSON
+# Import necessary libraries for BART
+from transformers import pipeline, BartTokenizer, BartForConditionalGeneration
+import torch
+
+# Determine device for BART inference
+# device = 0 if torch.cuda.is_available() else -1 # 0 for GPU, -1 for CPU. Use -1 for CPU only.
+# For simplicity and wider compatibility, we'll assume CPU usage or let pipeline handle it.
+# If you have a GPU and want to use it, uncomment and ensure torch is installed with CUDA support.
+
+# Initialize BART Zero-Shot Classifier (loaded once when module is imported)
+# This model is good for classification without explicit training data.
+try:
+    # classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli", device=device)
+    # Using CPU for broader compatibility in Canvas environment
+    classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+    print("BART 'facebook/bart-large-mnli' zero-shot classifier loaded successfully.")
+except ImportError:
+    print("Transformers or PyTorch not installed correctly. BART Zero-Shot Classifier will not be available.")
+    classifier = None
+except Exception as e:
+    print(f"Error loading BART Zero-Shot Classifier: {e}. It will not be available.")
+    classifier = None
+
+# You could also load a text generation/summarization model for more complex parsing
+# model_name_for_generation = "facebook/bart-large-cnn"
+# try:
+#     tokenizer_gen = BartTokenizer.from_pretrained(model_name_for_generation)
+#     model_gen = BartForConditionalGeneration.from_pretrained(model_name_for_generation)
+#     generator = pipeline("text2text-generation", model=model_gen, tokenizer=tokenizer_gen, device=device)
+#     print(f"BART '{model_name_for_generation}' generator loaded successfully.")
+# except ImportError:
+#     print("Transformers or PyTorch not installed correctly. BART generator will not be available.")
+#     generator = None
+# except Exception as e:
+#     print(f"Error loading BART generator: {e}. It will not be available.")
+#     generator = None
+
 
 def parse_prompt_for_automl(prompt: str, time_limit=None, validation_split=None, ensemble_enabled=False) -> dict:
     """
-    Parses a natural language prompt to extract AutoML task parameters.
-    This version includes placeholders for where a real LLM integration would go.
+    Parses a natural language prompt to extract AutoML task parameters using BART (conceptually).
 
     Args:
         prompt (str): The natural language prompt from the user.
@@ -15,115 +50,108 @@ def parse_prompt_for_automl(prompt: str, time_limit=None, validation_split=None,
         ensemble_enabled (bool, optional): User-specified ensembling preference.
 
     Returns:
-        dict: A dictionary containing extracted task parameters like:
-              - 'task_type': e.g., 'classification', 'regression', 'time_series'
-              - 'target_variable': The column to predict
-              - 'optimization_metric': e.g., 'accuracy', 'f1', 'rmse'
-              - 'time_limit': (optional) training time limit in minutes
-              - 'validation_split': (optional) ratio for validation data
-              - 'key_features_identified': (simulated) LLM's interpretation of important features.
-              - 'ensemble_enabled': (bool) whether ensembling is requested
+        dict: A dictionary containing extracted task parameters.
     """
-    print(f"LLM Parser: Attempting to parse prompt: '{prompt}'")
+    print(f"LLM Parser: Attempting to parse prompt: '{prompt}' using BART (conceptually).")
 
-    # --- START: Simulated LLM Parsing Logic ---
-    # # In a real application, this entire block would be replaced by an LLM API call.
-    # # The LLM would analyze the 'prompt' and return structured JSON.
+    # Initialize with default/fallback values
+    task_type = "classification"
+    target_variable = "target"
+    optimization_metric = "auto"
+    key_features = "general features, all columns considered"
 
-    # # Default values
-    # task_type = "classification" # Common default for structured data
-    # target_variable = "target"
-    # optimization_metric = "auto"
-    # key_features = "general features, all columns considered"
+    # --- Use BART for Task Type Classification (if loaded successfully) ---
+    if classifier:
+        candidate_labels = ["classification", "regression", "time series"]
+        try:
+            # Perform zero-shot classification
+            result = classifier(prompt, candidate_labels)
+            # Find the label with the highest score
+            if result['scores'][0] > 0.6: # Confidence threshold
+                detected_task_type = result['labels'][0]
+                # Map BART's output to your internal task types if necessary
+                if detected_task_type == "time series":
+                    task_type = "time_series"
+                else:
+                    task_type = detected_task_type
+                print(f"BART detected task type: {task_type} (Confidence: {result['scores'][0]:.2f})")
+            else:
+                print(f"BART confidence too low for task type detection. Falling back to keyword parsing.")
+        except Exception as e:
+            print(f"Error during BART zero-shot classification: {e}. Falling back to keyword parsing.")
+    
+    # --- Keyword-based / Rule-based parsing for other parameters (fallback or if BART isn't fine-tuned for this) ---
+    # This part remains mostly keyword-based because getting precise target variable names
+    # and specific feature lists directly from a general BART model in JSON without
+    # fine-tuning or complex prompt engineering is difficult.
 
-    # # Simple keyword-based logic for demonstration purposes
-    # if "predict customer churn" in prompt.lower() or "churn prediction" in prompt.lower() or "customer retention" in prompt.lower():
-    #     task_type = "classification"
-    #     target_variable = "Churn" # Assuming 'Churn' is the column name in dataset
-    #     optimization_metric = "recall" # Good for imbalanced classification
-    #     key_features = "gender, tenure, monthly_charges, total_charges, contract_type, internet_service"
-    # elif "forecast sales" in prompt.lower() or "predict sales" in prompt.lower() or "sales forecasting" in prompt.lower():
-    #     task_type = "time_series"
-    #     target_variable = "Sales" # Assuming 'Sales' is the column name
-    #     optimization_metric = "mae"
-    #     key_features = "date, promotional_spend, economic_indicators, seasonality"
-    # elif "predict house prices" in prompt.lower() or "housing price" in prompt.lower():
-    #     task_type = "regression"
-    #     target_variable = "Price" # Assuming 'Price' is the column name
-    #     optimization_metric = "rmse"
-    #     key_features = "location, square_footage, number_of_bedrooms, year_built, property_type"
-    # elif "classify reviews" in prompt.lower() or "sentiment" in prompt.lower():
-    #     task_type = "classification"
-    #     target_variable = "Sentiment"
-    #     optimization_metric = "f1_score"
-    #     key_features = "text_length, keyword_frequency, sentiment_score"
+    # Refine task_type based on explicit keywords if not confident from BART
+    if "predict customer churn" in prompt.lower() or "churn prediction" in prompt.lower() or "customer retention" in prompt.lower():
+        task_type = "classification"
+        target_variable = "Churn" # Assuming 'Churn' is a common column name in churn datasets
+        optimization_metric = "recall"
+        key_features = "gender, tenure, monthly_charges, total_charges, contract_type, internet_service"
+    elif "forecast sales" in prompt.lower() or "predict sales" in prompt.lower() or "sales forecasting" in prompt.lower():
+        task_type = "time_series"
+        target_variable = "Sales"
+        optimization_metric = "mae"
+        key_features = "date, promotional_spend, economic_indicators, seasonality"
+    elif "predict house prices" in prompt.lower() or "housing price" in prompt.lower():
+        task_type = "regression"
+        target_variable = "Price"
+        optimization_metric = "rmse"
+        key_features = "location, square_footage, number_of_bedrooms, year_built, property_type"
+    elif "classify reviews" in prompt.lower() or "sentiment" in prompt.lower():
+        task_type = "classification"
+        target_variable = "Sentiment"
+        optimization_metric = "f1_score"
+        key_features = "text_length, keyword_frequency, sentiment_score"
 
-    # --- END: Simulated LLM Parsing Logic ---
+    # For optimization metric, if not detected by BART or specific keywords
+    if "optimize for accuracy" in prompt.lower():
+        optimization_metric = "accuracy"
+    elif "optimize for f1" in prompt.lower() or "f1-score" in prompt.lower():
+        optimization_metric = "f1_score"
+    elif "optimize for rmse" in prompt.lower():
+        optimization_metric = "rmse"
+    elif "optimize for mae" in prompt.lower():
+        optimization_metric = "mae"
+    
+    # --- Advanced LLM Extraction (Requires fine-tuning or very clever prompt engineering for BART) ---
+    # If you had a BART model fine-tuned for JSON extraction:
+    # if generator:
+    #     try:
+    #         llm_prompt_for_json = f"""
+    #         Extract the following from the user prompt:
+    #         - ML task type (classification, regression, time_series)
+    #         - Target variable name
+    #         - Optimization metric (accuracy, f1_score, rmse, mae, or auto)
+    #         - Key features for analysis (comma-separated list, infer if not explicit)
+    #         User prompt: "{prompt}"
+    #         Output in JSON format. Example: {{"task_type": "classification", "target_variable": "Churn", "optimization_metric": "recall", "key_features_identified": "tenure, contract_type"}}
+    #         """
+    #         generated_response = generator(llm_prompt_for_json, max_length=200, num_beams=5, early_stopping=True)
+    #         generated_text = generated_response[0]['generated_text']
+    #         
+    #         # Attempt to parse the generated JSON
+    #         parsed_data = json.loads(generated_text)
+    #         task_type = parsed_data.get('task_type', task_type)
+    #         target_variable = parsed_data.get('target_variable', target_variable)
+    #         optimization_metric = parsed_data.get('optimization_metric', optimization_metric)
+    #         key_features = parsed_data.get('key_features_identified', key_features)
+    #         print(f"BART (generation) parsed: {parsed_data}")
+    #     except json.JSONDecodeError:
+    #         print("BART generated invalid JSON. Falling back to keyword parsing.")
+    #     except Exception as e:
+    #         print(f"Error during BART generation/parsing: {e}. Falling back to keyword parsing.")
 
-    # --- START: Example of Actual LLM API Call (Commented Out) ---
-    # This is how you would replace the simulated parsing above with a real LLM call.
-    # Ensure 'google-generativeai' is installed and you have a valid API key.
-
-    try:
-        # Configure your Gemini API key (replace with your actual key or environment variable)
-        # genai.configure(api_key="YOUR_GEMINI_API_KEY") # Or set as GOOGLE_API_KEY env var
-        
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        
-        # Define the JSON schema for the expected output
-        response_schema = {
-            "type": "OBJECT",
-            "properties": {
-                "task_type": { "type": "STRING", "description": "Classification, regression, or time_series" },
-                "target_variable": { "type": "STRING", "description": "The name of the column to predict" },
-                "optimization_metric": { "type": "STRING", "description": "e.g., accuracy, f1_score, rmse, mae. Use 'auto' if not specified." },
-                "key_features_identified": { "type": "STRING", "description": "Comma-separated list of most important features from the prompt, if identifiable." }
-            },
-            "required": ["task_type", "target_variable", "optimization_metric"]
-        }
-        
-        # Construct the prompt for the LLM
-        llm_prompt = f"""
-        Analyze the following user request for an AutoML task and extract the key parameters.
-        User Prompt: "{prompt}"
-        
-        Provide the output as a JSON object with the following keys:
-        'task_type': (e.g., 'classification', 'regression', 'time_series')
-        'target_variable': (The name of the column to predict, infer if not explicit)
-        'optimization_metric': (e.g., 'accuracy', 'f1_score', 'rmse', 'mae'. Use 'auto' if not specified.)
-        'key_features_identified': (A comma-separated list of the most important features mentioned or implied for analysis, if identifiable. If not, use 'N/A'.)
-        
-        Ensure the output strictly adheres to the JSON schema provided.
-        """
-        
-        response = model.generate_content(
-            llm_prompt,
-            generation_config={
-                "response_mime_type": "application/json",
-                "response_schema": response_schema
-            }
-        )
-        
-        # Parse the LLM's JSON response
-        llm_response_json = json.loads(response.text)
-        
-        task_type = llm_response_json.get('task_type', task_type)
-        target_variable = llm_response_json.get('target_variable', target_variable)
-        optimization_metric = llm_response_json.get('optimization_metric', optimization_metric)
-        key_features = llm_response_json.get('key_features_identified', key_features)
-        
-    except Exception as e:
-        print(f"LLM API call failed or parsing error: {e}")
-        # Fallback to simulated/default values if API call fails
-        pass
-    # --- END: Example of Actual LLM API Call (Commented Out) ---
 
     return {
         "task_type": task_type,
         "target_variable": target_variable,
         "optimization_metric": optimization_metric,
-        "time_limit": time_limit, # Passed from frontend, not parsed by LLM here
-        "validation_split": validation_split, # Passed from frontend, not parsed by LLM here
+        "time_limit": time_limit, # These are passed from frontend advanced options
+        "validation_split": validation_split, # These are passed from frontend advanced options
         "original_prompt": prompt,
         "key_features_identified": key_features,
         "ensemble_enabled": ensemble_enabled, # Passed from frontend
