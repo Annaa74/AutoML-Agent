@@ -11,7 +11,8 @@ urlpatterns = [
     path('new_project/', views.new_project, name='new_project'),
     path('my_models/', views.my_models, name='my_models'),
     path('data_management/', views.data_management, name='data_management'),
+    path('profile/', views.user_profile, name='user_profile'), # New URL
+    path('settings/', views.user_settings, name='user_settings'), # New URL
     path('api/logout/', views.user_logout, name='logout_api'),
-    # New API endpoint to save uploaded dataset info to Django DB
     path('api/save_uploaded_dataset_info/', views.save_uploaded_dataset_info, name='save_uploaded_dataset_info_api'),
 ]

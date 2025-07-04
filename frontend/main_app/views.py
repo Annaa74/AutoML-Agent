@@ -2,11 +2,12 @@
 
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 import json
-from .models import UploadedDataset # Import the new model
+from .models import UploadedDataset, UserProfile # Import new model
+from .forms import CustomUserCreationForm # Import custom form
 
 def intro_page(request):
     return render(request, 'main_app/intro_page.html')
@@ -29,13 +30,17 @@ def user_login(request):
 
 def user_register(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST) # Use custom form
         if form.is_valid():
             user = form.save()
+            # Create a UserProfile for the new user
+            UserProfile.objects.create(user=user)
             login(request, user)
             return redirect('dashboard')
+        else:
+            print(form.errors) # Print form errors for debugging
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm() # Use custom form
     return render(request, 'main_app/register.html', {'form': form})
 
 @login_required
@@ -63,13 +68,30 @@ def my_models(request):
 @login_required
 def data_management(request):
     current_username = request.user.username if request.user.is_authenticated else 'Guest'
-    
-    # Fetch all datasets uploaded by the current user
     uploaded_datasets = UploadedDataset.objects.filter(user=request.user).order_by('-upload_date')
-    
     return render(request, 'main_app/data_management.html', {
         'current_username': current_username,
         'uploaded_datasets': uploaded_datasets
+    })
+
+@login_required
+def user_profile(request):
+    current_username = request.user.username if request.user.is_authenticated else 'Guest'
+    # Fetch the user's profile, create if it doesn't exist (shouldn't happen with post_save signal)
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    return render(request, 'main_app/profile.html', {
+        'current_username': current_username,
+        'user': request.user,
+        'profile': profile
+    })
+
+@login_required
+def user_settings(request):
+    current_username = request.user.username if request.user.is_authenticated else 'Guest'
+    # You would typically handle a settings form submission here
+    return render(request, 'main_app/settings.html', {
+        'current_username': current_username,
+        'user': request.user
     })
 
 @login_required
@@ -83,8 +105,6 @@ def save_uploaded_dataset_info(request):
             if not original_filename or not stored_filename:
                 return JsonResponse({"error": "Missing filename information."}, status=400)
 
-            # Check if a dataset with this stored_filename already exists for this user
-            # This prevents duplicates if the frontend sends the same info multiple times
             if UploadedDataset.objects.filter(user=request.user, stored_filename=stored_filename).exists():
                 return JsonResponse({"message": "Dataset already registered for this user."}, status=200)
 
@@ -99,3 +119,4 @@ def save_uploaded_dataset_info(request):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
     return JsonResponse({"error": "Invalid request method."}, status=405)
+

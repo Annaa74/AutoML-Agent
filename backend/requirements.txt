@@ -1,11 +1,14 @@
 # backend/requirements.txt
 Flask==2.3.3
 Flask-CORS==3.0.10
-pandas==2.2.2
-scikit-learn==1.4.2
+pandas
+scikit-learn
 pycaret==3.2.0
 transformers==4.42.0 # For BART model
 torch==2.3.0 # Or tensorflow, if preferred for transformers
 tf-keras # Added for Keras 3 compatibility with Transformers
 # Add google-generativeai if you plan to use actual Gemini LLM integration later
 # google-generativeai==0.6.0
+
+
+
