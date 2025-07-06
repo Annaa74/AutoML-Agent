@@ -12,31 +12,28 @@ import torch
 
 # Initialize BART Zero-Shot Classifier (loaded once when module is imported)
 # This model is good for classification without explicit training data.
+classifier = None # Initialize to None
 try:
-    # classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli", device=device)
     # Using CPU for broader compatibility in Canvas environment
     classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
     print("BART 'facebook/bart-large-mnli' zero-shot classifier loaded successfully.")
 except ImportError:
     print("Transformers or PyTorch not installed correctly. BART Zero-Shot Classifier will not be available.")
-    classifier = None
 except Exception as e:
     print(f"Error loading BART Zero-Shot Classifier: {e}. It will not be available.")
-    classifier = None
 
 # You could also load a text generation/summarization model for more complex parsing
 # model_name_for_generation = "facebook/bart-large-cnn"
+# generator = None # Initialize to None
 # try:
 #     tokenizer_gen = BartTokenizer.from_pretrained(model_name_for_generation)
 #     model_gen = BartForConditionalGeneration.from_pretrained(model_name_for_generation)
-#     generator = pipeline("text2text-generation", model=model_gen, tokenizer=tokenizer_gen, device=device)
+#     generator = pipeline("text2text-generation", model=model_gen, tokenizer=tokenizer_gen)
 #     print(f"BART '{model_name_for_generation}' generator loaded successfully.")
 # except ImportError:
 #     print("Transformers or PyTorch not installed correctly. BART generator will not be available.")
-#     generator = None
 # except Exception as e:
 #     print(f"Error loading BART generator: {e}. It will not be available.")
-#     generator = None
 
 
 def parse_prompt_for_automl(prompt: str, time_limit=None, validation_split=None, ensemble_enabled=False) -> dict:
