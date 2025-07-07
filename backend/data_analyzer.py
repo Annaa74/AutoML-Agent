@@ -21,8 +21,7 @@ import numpy as np
 #     classifier = None
 # except Exception as e:
 #     print(f"Error loading BART Zero-Shot Classifier for data_analyzer: {e}. It will not be available.")
-#     classifier = None
-
+#
 # You could also load a text generation/summarization model for more complex parsing
 # model_name_for_generation = "facebook/bart-large-cnn"
 # try:
@@ -35,7 +34,6 @@ import numpy as np
 #     generator = None
 # except Exception as e:
 #     print(f"Error loading BART generator for data_analyzer: {e}. It will not be available.")
-#     generator = None
 
 
 def load_dataset_and_get_preview(file_path: str):
