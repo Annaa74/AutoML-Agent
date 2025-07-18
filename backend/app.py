@@ -1,5 +1,5 @@
 # automl_flask_app/app.py
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, after_this_request, send_file
 from flask_cors import CORS # For handling Cross-Origin Resource Sharing
 import time
 import uuid
@@ -7,8 +7,14 @@ import os
 import shutil # For deleting directories
 
 app = Flask(__name__)
-# Enable CORS for all routes (for development purposes, be more specific in production)
-CORS(app)
+
+# --- IMPORTANT CORS CONFIGURATION ---
+# Specify the exact origin(s) of your frontend application(s).
+# If your Django frontend runs on http://127.0.0.1:8000, use that.
+# If it runs on localhost, use http://localhost:8000.
+# For multiple origins, use a list: origins=["http://127.0.0.1:8000", "http://localhost:8000"]
+# Also, set supports_credentials=True to allow cookies (like CSRF token) to be sent.
+CORS(app, origins=["http://127.0.0.1:8000", "http://localhost:8000"], supports_credentials=True)
 
 # In-memory storage for simulating training jobs
 # In a real application, this would be persisted in a database (e.g., SQLite, PostgreSQL)
@@ -28,13 +34,35 @@ if not os.path.exists(MODEL_ARTIFACTS_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MODEL_ARTIFACTS_FOLDER'] = MODEL_ARTIFACTS_FOLDER
 
+# --- Debugging: Print all response headers and explicitly set Access-Control-Allow-Credentials ---
+@app.after_request
+def after_request_func(response):
+    # Ensure Access-Control-Allow-Origin is set to the requesting origin if credentials are included
+    origin = request.headers.get('Origin')
+    if origin and origin in ["http://127.0.0.1:8000", "http://localhost:8000"]:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    
+    # Explicitly set Access-Control-Allow-Credentials to 'true'
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    
+    # Allow specific headers (especially Content-Type and X-CSRFToken for preflight)
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,X-CSRFToken')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS') # Ensure OPTIONS is allowed
+
+    print(f"\n--- Response Headers for {request.path} ---")
+    for header, value in response.headers.items():
+        print(f"{header}: {value}")
+    print("---------------------------------------\n")
+    return response
+
 
 @app.route('/')
 def index():
     """
-    Serves the main frontend HTML page.
+    Returns a simple message indicating the Flask API is running.
+    The main frontend HTML page (intro_page.html) is served by Django.
     """
-    return render_template('index.html')
+    return jsonify({"message": "AutoML Agent Flask API is running!"})
 
 @app.route('/api/train', methods=['POST']) # Changed to /api/train as per Django views
 def train_model_api():
@@ -69,6 +97,14 @@ def train_model_api():
         print(f"File '{original_filename}' saved to {file_path} as {stored_filename}")
 
         job_id = str(uuid.uuid4())
+        # Simulate creating a dummy model file
+        model_artifact_filename = f"model_{job_id}.pkl"
+        model_artifact_path = os.path.join(app.config['MODEL_ARTIFACTS_FOLDER'], model_artifact_filename)
+        with open(model_artifact_path, 'w') as f:
+            f.write(f"Simulated model artifact content for {job_id}") # Write some dummy content
+        print(f"Simulated model artifact created at: {model_artifact_path}")
+
+
         training_jobs[job_id] = {
             "status": "initiated",
             "progress": 0,
@@ -93,13 +129,13 @@ def train_model_api():
             "final_metric_value": None,
             "feature_importance_values": {},
             "model_training_time": None,
-            "model_artifact_path": None, # Path to the saved model artifact
+            "model_artifact_path": model_artifact_path, # Store path to the dummy model artifact
         }
 
         # Simulate starting an async task (e.g., using Celery or threading) for actual AutoML
         print(f"Training job {job_id} initiated for prompt: '{prompt}' with dataset: '{original_filename}'")
 
-        return jsonify({"job_id": job_id, "message": "Training process initiated."})
+        return jsonify({"job_id": job_id, "message": "Training process initiated.", "stored_filename": stored_filename, "original_filename": original_filename})
 
     except Exception as e:
         print(f"Error in /api/train: {e}")
@@ -158,13 +194,7 @@ def model_status_api(job_id):
         job['feature_importance_values'] = { # Simulated feature importance
             "feature_A": 0.35, "feature_B": 0.25, "feature_C": 0.15, "feature_D": 0.10, "feature_E": 0.05
         }
-        # Simulate saving a model artifact
-        model_artifact_filename = f"model_{job_id}.pkl"
-        model_artifact_path = os.path.join(app.config['MODEL_ARTIFACTS_FOLDER'], model_artifact_filename)
-        # In a real scenario, you'd save the actual model here (e.g., using pickle, joblib)
-        with open(model_artifact_path, 'w') as f:
-            f.write(f"Simulated model artifact for {job_id}")
-        job['model_artifact_path'] = model_artifact_path # Store path for potential deletion
+        # model_artifact_path is already set when job is initiated
         print(f"Training job {job_id} completed. API: {job['api_endpoint']}")
 
     return jsonify(job)
@@ -205,7 +235,7 @@ def data_management_analyze(stored_filename):
     # Simulate reading and analyzing the file
     preview_content = "Simulated preview of the dataset...\nColumn1,Column2,Column3\n1,A,X\n2,B,Y\n3,C,Z\n..."
     summary_text = "This is a simulated summary of your dataset. It contains 100 rows and 5 columns. No missing values detected. Key features are Column1 (numerical) and Column2 (categorical)."
-    describe_content = "Simulated statistical description:\n             count   mean    std\nColumn1    100.0  50.0  15.0\nColumn3    100.0  0.5   0.2"
+    describe_content = "Simulated statistical description:\n             count   mean    std\nColumn1    100.0   50.0   15.0\nColumn3    100.0   0.5    0.2"
 
     # Simulate chart data (e.g., for a bar chart of categorical distribution or histogram)
     visualization_charts = [
@@ -290,6 +320,65 @@ def model_artifacts_delete(artifact_filename):
     else:
         return jsonify({"error": "Model artifact not found."}), 404
 
+@app.route('/api/download_model/<string:job_id>', methods=['GET'])
+def download_model(job_id):
+    """
+    Serves the trained model artifact (.pkl file) for download.
+    """
+    job = training_jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Training job not found."}), 404
+
+    model_path = job.get('model_artifact_path')
+    if not model_path or not os.path.exists(model_path):
+        return jsonify({"error": "Model artifact not found for this job."}), 404
+
+    try:
+        # Extract the filename from the path to use as the download name
+        filename = os.path.basename(model_path)
+        return send_file(model_path, as_attachment=True, download_name=filename)
+    except Exception as e:
+        print(f"Error serving model file for job {job_id}: {e}")
+        return jsonify({"error": f"Failed to download model: {str(e)}"}), 500
+
+
+# Simulated authentication endpoints
+@app.route('/api/login/', methods=['POST'])
+def login_api():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    # Basic simulation: check for a hardcoded user or any non-empty credentials
+    if username == "user" and password == "password":
+        # In a real app, you'd verify credentials against a database
+        # and then set up a session or issue a token (e.g., JWT)
+        return jsonify({"message": "Login successful!", "redirect_url": "/dashboard"}), 200
+    elif username and password:
+        # Simulate successful login for any non-empty credentials for demo purposes
+        return jsonify({"message": "Login successful!", "redirect_url": "/dashboard"}), 200
+    else:
+        return jsonify({"message": "Invalid username or password."}), 401
+
+@app.route('/api/signup/', methods=['POST'])
+def signup_api():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({"message": "Username and password are required."}), 400
+    
+    # Basic simulation: always "succeed" for demo purposes, or add basic checks
+    # In a real app, you'd save the new user to a database, hash the password, etc.
+    if len(password) < 6:
+        return jsonify({"message": "Password must be at least 6 characters long."}), 400
+    
+    # Simulate user already exists
+    if username == "existing_user": # Example of a simulated existing user
+        return jsonify({"message": "Username already taken."}), 409 # Conflict
+    
+    return jsonify({"message": "Signup successful! Please log in."}), 201 # Created
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) # Ensure Flask runs on port 5000

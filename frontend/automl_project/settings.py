@@ -124,6 +124,11 @@ STATIC_ROOT =BASE_DIR/'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# --- Custom Login/Logout URLs ---
+# This tells Django where to redirect users for login and after successful login/logout.
+LOGIN_URL = '/login/' # Your custom login URL
+LOGIN_REDIRECT_URL = '/dashboard/' # Where to go after successful login
+LOGOUT_REDIRECT_URL = '/' # Where to go after logout (e.g., home page)
 
 
 REST_FRAMEWORK = {

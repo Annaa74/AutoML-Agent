@@ -60,6 +60,7 @@
         /* New: Interactive Model Card for selection */
         .interactive-model-card {
             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer; /* Indicate it's clickable */
         }
         .interactive-model-card:hover {
             transform: translateY(-3px);
@@ -75,7 +76,7 @@
 <body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
     <header class="bg-white shadow-sm py-4 z-10">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <div class="text-2xl font-bold text-gray-900">AutoML Agent</div>
+            <div class="text-2xl font-bold text-gray-900">AutoML Agent <span class="text-blue-600">Pro</span></div>
             <div class="flex items-center space-x-4">
                 <span class="text-gray-700 hidden sm:block">Welcome, <span class="font-semibold" id="logged-in-username">{{ current_username }}</span>!</span>
                 <button id="logout-button" class="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors shadow-sm">Logout</button>
@@ -287,7 +288,7 @@
             const parsedTimeLimit = document.getElementById('parsed-time-limit'); 
             const parsedValidationSplit = document.getElementById('parsed-validation-split');
             const parsedEnsembling = document.getElementById('parsed-ensembling');
-            const parsedKeyFeatures = document.getElementById('parsed-key-features'); // New element for feature importance
+            const parsedKeyFeatures = document.getElementById('parsed-key-features'); 
             const statusMessage = document.getElementById('status-message');
             const loadingSpinner = document.getElementById('loading-spinner');
             const modelOutput = document.getElementById('model-output');
@@ -299,7 +300,7 @@
             const progressBar = document.getElementById('progress-bar');
             const modelSummary = document.getElementById('model-summary');
             const summaryContent = document.getElementById('summary-content');
-            const featureImportanceList = document.getElementById('feature-importance-list'); // New element for feature importance list
+            const featureImportanceList = document.getElementById('feature-importance-list'); 
 
             // Advanced Options Toggle elements
             const advancedOptionsToggle = document.getElementById('advanced-options-toggle');
@@ -322,25 +323,21 @@
             let selectedModelAlgorithm = ''; 
             let ensemblingEnabled = false; // State from initial form submission
 
-            // Custom Alert elements
+            // Custom Alert elements (already defined in intro_page, but good to have local references if this is a standalone page)
             const customAlert = document.getElementById('custom-alert');
             const alertMessage = document.getElementById('alert-message');
             const alertOkButton = document.getElementById('alert-ok-button');
 
             // Define showAlert function here. It will use customAlert and alertMessage.
-            // Check for their existence inside the function, or ensure they are always valid elements.
             function showAlert(message) {
                 if (alertMessage && customAlert) {
                     alertMessage.textContent = message;
                     customAlert.classList.remove('hidden');
                 } else {
                     console.error("ERROR: Custom alert components (alertMessage or customAlert) not found when calling showAlert.");
-                    // Fallback to native alert if it's a critical failure and acceptable:
-                    // alert(message);
                 }
             }
 
-            // Only attach listener to alertOkButton if the element exists
             if (alertOkButton) {
                 alertOkButton.addEventListener('click', () => {
                     if (customAlert) {
@@ -350,6 +347,70 @@
             } else {
                 console.error("ERROR: Element with ID 'alert-ok-button' not found in the DOM. Alert dismissal might not work.");
             }
+
+            // Define the base URL for your Flask API
+            const FLASK_API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:5000`; 
+
+            // Function to get CSRF token from cookies (for Django endpoints)
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            const csrftoken = getCookie('csrftoken'); // Get Django CSRF token
+
+            // --- Utility Functions ---
+            // Highlight active navigation link
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                // Remove trailing slash from currentPath for accurate matching if needed
+                const cleanedCurrentPath = currentPath.endsWith('/') && currentPath.length > 1 ? currentPath.slice(0, -1) : currentPath;
+                const linkHref = link.getAttribute('href');
+
+                if (linkHref === cleanedCurrentPath || (linkHref === '/' && cleanedCurrentPath === '/dashboard')) { // Special case for dashboard/home
+                    link.classList.add('active');
+                    link.classList.remove('border-transparent');
+                    link.classList.add('border-l-blue-600');
+                } else {
+                    link.classList.remove('active');
+                    link.classList.remove('border-l-blue-600');
+                    link.classList.add('border-transparent');
+                }
+            });
+
+
+            // --- Event Listeners ---
+            logoutButton.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/logout/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken, 
+                        },
+                        credentials: 'include' 
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        showAlert('You have been logged out.');
+                        window.location.href = data.redirect_url; 
+                    } else {
+                        showAlert(data.message || 'Logout failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    showAlert('Network error during logout.');
+                }
+            });
 
             // Handle range slider value display
             timeLimitInput.addEventListener('input', () => {
@@ -387,46 +448,31 @@
                 }
             });
 
-            // Function to get CSRF token from cookies (only for Django endpoints like logout)
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-            const csrftoken = getCookie('csrftoken'); // Get Django CSRF token
-
-            // --- Event Listeners ---
-            logoutButton.addEventListener('click', async () => {
+            // Function to save uploaded dataset info to Django backend
+            async function saveUploadedDatasetInfo(originalFilename, storedFilename) {
                 try {
-                    // This is a Django endpoint, so CSRF token and credentials are required
-                    const response = await fetch('/api/logout/', {
+                    const response = await fetch('/api/save_uploaded_dataset_info/', {
                         method: 'POST',
                         headers: {
-                            'X-CSRFToken': csrftoken, // Django's CSRF token
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken,
                         },
-                        credentials: 'include' // Include session and CSRF cookies
+                        body: JSON.stringify({
+                            original_filename: originalFilename,
+                            stored_filename: storedFilename
+                        }),
+                        credentials: 'include'
                     });
                     const data = await response.json();
                     if (response.ok) {
-                        showAlert('You have been logged out.');
-                        window.location.href = data.redirect_url; // Redirect to intro page
+                        console.log('Dataset info saved to Django:', data.message);
                     } else {
-                        showAlert(data.message || 'Logout failed. Please try again.');
+                        console.error('Failed to save dataset info to Django:', data.error);
                     }
                 } catch (error) {
-                    console.error('Logout error:', error);
-                    showAlert('Network error during logout.');
+                    console.error('Network error saving dataset info to Django:', error);
                 }
-            });
+            }
 
             startTrainingButton.addEventListener('click', async () => {
                 const prompt = document.getElementById('prompt-input').value;
@@ -478,7 +524,7 @@
 
                 try {
                     // This fetch targets the Flask backend. No X-CSRFToken header needed here.
-                    const response = await fetch('http://localhost:5000/api/train', {
+                    const response = await fetch(`${FLASK_API_BASE_URL}/api/train`, {
                         method: 'POST',
                         body: formData,
                         credentials: 'include' 
@@ -496,6 +542,16 @@
 
                     currentJobId = data.job_id; // Store job ID
                     statusMessage.textContent = `Training initiated. Job ID: ${currentJobId}. Polling for status...`;
+                    
+                    // Save uploaded dataset info to Django after successful Flask upload
+                    if (data.stored_filename && data.original_filename) {
+                        await saveUploadedDatasetInfo(data.original_filename, data.stored_filename);
+                    } else if (datasetFile.name && data.stored_filename) {
+                         // Fallback: use client-side filename if Flask didn't return original_filename
+                        await saveUploadedDatasetInfo(datasetFile.name, data.stored_filename);
+                    }
+
+
                     pollForModelStatus(currentJobId);
 
                 } catch (error) {
@@ -514,7 +570,7 @@
 
                 pollIntervalId = setInterval(async () => {
                     try {
-                        const response = await fetch(`http://localhost:5000/api/status/${jobId}`, {
+                        const response = await fetch(`${FLASK_API_BASE_URL}/api/status/${jobId}`, {
                             credentials: 'include'
                         });
                         const data = await response.json();
@@ -528,209 +584,232 @@
                             return;
                         }
 
+                        // Update UI based on status
+                        statusMessage.textContent = `Status: ${data.status.replace(/_/g, ' ').toUpperCase()} (Progress: ${data.progress}%)`;
+                        progressBar.style.width = `${data.progress}%`;
+
                         // Display Parsed ML Parameters once available
-                        if (data.automl_params) {
+                        if (data.automl_params && parsedParamsDisplay.classList.contains('hidden')) {
                             parsedTaskType.textContent = data.automl_params.task_type || 'N/A';
                             parsedTargetVariable.textContent = data.automl_params.target_variable || 'N/A';
                             parsedOptimizationMetric.textContent = data.automl_params.optimization_metric || 'N/A';
-                            parsedTimeLimit.textContent = data.automl_params.time_limit !== undefined && data.automl_params.time_limit !== null ? data.automl_params.time_limit : 'N/A';
-                            parsedValidationSplit.textContent = data.automl_params.validation_split !== undefined && data.automl_params.validation_split !== null ? data.automl_params.validation_split : 'N/A';
+                            parsedTimeLimit.textContent = data.automl_params.time_limit || 'N/A';
+                            parsedValidationSplit.textContent = data.automl_params.validation_split || 'N/A';
                             parsedEnsembling.textContent = data.automl_params.ensemble_enabled ? 'Enabled' : 'Disabled';
-                            parsedKeyFeatures.textContent = data.automl_params.key_features_identified || 'Not specified/Identified';
+                            parsedKeyFeatures.textContent = data.automl_params.key_features_identified || 'N/A';
                             parsedParamsDisplay.classList.remove('hidden');
                         }
 
-
-                        statusMessage.textContent = `Status: ${data.status} (Progress: ${data.progress}%)`;
-                        progressBar.style.width = `${data.progress}%`;
-
-                        // Simulate model selection phase - now using top_models_info from backend
-                        if (data.progress >= 70 && data.status === 'awaiting model selection' && !modelSelectionPhaseTriggered && data.top_models_info && data.top_models_info.length > 0) {
-                            clearInterval(pollIntervalId); // Pause polling
-                            loadingSpinner.classList.add('hidden');
-                            progressBar.classList.add('hidden');
-                            statusMessage.textContent = 'Training completed initial models. Please select the best algorithm to finalize deployment:';
-                            modelSelectionArea.classList.remove('hidden');
+                        if (data.status === "awaiting model selection" && !modelSelectionPhaseTriggered) {
                             modelSelectionPhaseTriggered = true;
-
-                            modelOptionsDiv.innerHTML = ''; // Clear previous options
-                            data.top_models_info.forEach((algo) => {
-                                const card = document.createElement('div');
-                                card.className = 'interactive-model-card bg-white p-4 rounded-lg shadow-md border border-gray-200 cursor-pointer';
-                                card.innerHTML = `
-                                    <label class="flex flex-col items-center justify-center h-full text-center">
-                                        <input type="radio" name="selected_algo" value="${algo.value}" class="form-radio text-blue-600 h-5 w-5 mb-2">
-                                        <h4 class="font-bold text-lg text-gray-800 mb-1">${algo.name}</h4>
-                                        <p class="text-sm text-gray-600">Performance: <span class="font-semibold text-blue-700">${algo.performance}</span></p>
-                                        <p class="text-sm text-gray-600">Training Time: ${algo.time}</p>
-                                    </label>
-                                `;
-                                card.querySelector('input[type="radio"]').addEventListener('change', (e) => {
-                                    document.querySelectorAll('.interactive-model-card').forEach(c => c.classList.remove('selected'));
-                                    if (e.target.checked) {
-                                        card.classList.add('selected');
-                                    }
-                                });
-                                modelOptionsDiv.appendChild(card);
-                            });
-
+                            loadingSpinner.classList.add('hidden');
+                            modelSelectionArea.classList.remove('hidden');
+                            statusMessage.textContent = 'Model training complete! Please select a model for deployment.';
+                            populateModelOptions(data.top_models_info);
                             selectModelButton.classList.remove('hidden'); // Show select button
-                            selectModelButton.onclick = () => {
-                                const selectedAlgoInput = document.querySelector('input[name="selected_algo"]:checked');
-                                if (selectedAlgoInput) {
-                                    selectedModelAlgorithm = selectedAlgoInput.value;
-                                    resumeTrainingAfterSelection();
-                                } else {
-                                    showAlert('Please select an algorithm.');
-                                }
-                            };
+                            // If ensembling was enabled, automatically select ensemble (simulated)
+                            if (ensemblingEnabled) {
+                                ensembleModelsButton.click(); // Programmatically click the ensemble button
+                            }
+                            // Stop polling for now, user action is required
+                            clearInterval(pollIntervalId); 
 
-                            ensembleModelsButton.onclick = () => {
-                                selectedModelAlgorithm = 'Ensemble Model'; // Mark as ensemble
-                                // Note: ensemblingEnabled is already sent to backend with initial request.
-                                // This simply updates the frontend's 'selectedModelAlgorithm' for the summary.
-                                resumeTrainingAfterSelection();
-                            };
-
-                        } else if (data.status === 'completed') {
+                        } else if (data.status === "completed") {
                             clearInterval(pollIntervalId);
                             loadingSpinner.classList.add('hidden');
-                            progressBar.classList.remove('hidden'); // Ensure progress bar is visible at 100%
-                            progressBar.style.width = '100%';
-                            statusMessage.textContent = 'Model training and deployment complete!';
+                            startTrainingButton.disabled = false;
+                            modelSelectionArea.classList.add('hidden'); // Hide model selection area
                             modelOutput.classList.remove('hidden');
-                            apiEndpointDisplay.textContent = data.api_endpoint;
-                            startTrainingButton.disabled = false;
+                            apiEndpointDisplay.textContent = data.api_endpoint || 'N/A';
+                            statusMessage.textContent = 'Model deployed successfully!';
                             
-                            // Generate model summary
-                            let summaryText = `Your AutoML Agent has successfully built and deployed a powerful machine learning model!`;
-                            summaryText += ` Based on your prompt, the task was identified as a **${parsedTaskType.textContent}** aiming to predict the **'${parsedTargetVariable.textContent}'** variable, optimizing for **${parsedOptimizationMetric.textContent}**.`;
-                            
-                            if (data.selected_algorithm_name) { // Use actual selected algorithm name from backend
-                                summaryText += ` The engine explored various algorithms and finalized the deployment using a **${data.selected_algorithm_name}**.`;
-                            } else if (selectedModelAlgorithm) { // Fallback to frontend's selected if backend didn't specify
-                                summaryText += ` The engine explored various algorithms and finalized the deployment using a **${selectedModelAlgorithm}**.`;
+                            // Populate Model Training Summary
+                            summaryContent.innerHTML = `
+                                Selected Algorithm: <span class="font-semibold">${data.selected_algorithm_name || 'N/A'}</span><br>
+                                Final Metric Value: <span class="font-semibold">${data.final_metric_value ? data.final_metric_value.toFixed(4) : 'N/A'}</span><br>
+                                Training Duration: <span class="font-semibold">${data.model_training_time ? data.model_training_time + ' seconds' : 'N/A'}</span>
+                            `;
+
+                            // Populate Feature Importance
+                            featureImportanceList.innerHTML = ''; // Clear previous items
+                            if (data.feature_importance_values && Object.keys(data.feature_importance_values).length > 0) {
+                                for (const feature in data.feature_importance_values) {
+                                    const li = document.createElement('li');
+                                    li.textContent = `${feature}: ${data.feature_importance_values[feature].toFixed(4)}`;
+                                    featureImportanceList.appendChild(li);
+                                }
                             } else {
-                                summaryText += ` The engine automatically explored and selected the best algorithm for your data.`;
+                                const li = document.createElement('li');
+                                li.textContent = 'No specific feature importance available for this model.';
+                                featureImportanceList.appendChild(li);
                             }
 
-                            if (parsedEnsembling.textContent === 'Enabled') {
-                                summaryText += ` Ensembling techniques were applied to further boost the model's robustness and performance.`;
-                            } else {
-                                summaryText += ` No ensembling was explicitly applied for this model.`;
-                            }
-                            summaryText += ` This model trained in approximately **${data.model_training_time || 'N/A'} seconds** and achieved a final ${parsedOptimizationMetric.textContent} of **${data.final_metric_value || 'N/A'}**.`;
-                            summaryText += ` This model is now accessible via the provided API endpoint, ready for integration into your applications.`;
-                            summaryContent.textContent = summaryText;
-
-                            // Display Feature Importance (if provided by backend)
-                            featureImportanceList.innerHTML = '';
-                            if (data.feature_importance_values) {
-                                const sortedFeatures = Object.entries(data.feature_importance_values).sort(([, a], [, b]) => b - a);
-                                sortedFeatures.forEach(([feature, importance]) => {
-                                    const listItem = document.createElement('li');
-                                    listItem.textContent = `${feature}: ${ (importance * 100).toFixed(1)}%`; // Display as percentage
-                                    featureImportanceList.appendChild(listItem);
-                                });
-                            } else if (data.automl_params && data.automl_params.key_features_identified && data.automl_params.key_features_identified !== 'N/A') {
-                                // Fallback to LLM identified features if no precise values
-                                const featuresArray = data.automl_params.key_features_identified.split(',').map(f => f.trim());
-                                featuresArray.forEach(feature => {
-                                    const listItem = document.createElement('li');
-                                    listItem.textContent = `${feature}`;
-                                    featureImportanceList.appendChild(listItem);
-                                });
-                            } else {
-                                const listItem = document.createElement('li');
-                                listItem.textContent = 'Feature importance not available for this model.';
-                                featureImportanceList.appendChild(listItem);
-                            }
-
-
-                        } else if (data.status === 'failed') {
+                        } else if (data.status === "failed") {
                             clearInterval(pollIntervalId);
                             loadingSpinner.classList.add('hidden');
-                            progressBar.classList.remove('hidden'); // Ensure progress bar visible for error
-                            progressBar.style.width = '100%';
-                            errorMessageDiv.classList.remove('hidden');
-                            errorDetails.textContent = `Training failed: ${data.error || 'No specific error message.'}`;
                             startTrainingButton.disabled = false;
+                            errorMessageDiv.classList.remove('hidden');
+                            errorDetails.textContent = data.error || 'Training failed. Please check your prompt and dataset.';
+                            modelSelectionArea.classList.add('hidden'); // Hide model selection area if training failed
                         }
+
                     } catch (error) {
                         clearInterval(pollIntervalId);
+                        console.error('Polling error:', error);
                         errorMessageDiv.classList.remove('hidden');
-                        errorDetails.textContent = `Network or server error during polling: ${error.message}`;
+                        errorDetails.textContent = `Network error during status polling: ${error.message}`;
                         loadingSpinner.classList.add('hidden');
                         startTrainingButton.disabled = false;
                     }
-                }, 3000); // Poll every 3 seconds
+                }, 2000); // Poll every 2 seconds
             }
 
-            function resumeTrainingAfterSelection() {
-                modelSelectionArea.classList.add('hidden');
-                progressBar.classList.remove('hidden');
-                loadingSpinner.classList.remove('hidden');
-                statusMessage.textContent = `Finalizing deployment with selected algorithm (${selectedModelAlgorithm})...`;
-                // Continue polling to reach 'completed' state
-                pollForModelStatus(currentJobId);
-            }
-
-            // --- Model Download ---
-            downloadModelButton.addEventListener('click', () => {
-                const modelData = {
-                    modelId: currentJobId,
-                    algorithm: selectedModelAlgorithm || 'AutoML Selected',
-                    summary: summaryContent.textContent,
-                    endpoint: apiEndpointDisplay.textContent,
-                    // In a real app, you'd fetch the actual model binary or a reference
-                    // For now, this is metadata about the model
-                    modelDetails: {
-                        taskType: parsedTaskType.textContent,
-                        targetVariable: parsedTargetVariable.textContent,
-                        optimizationMetric: parsedOptimizationMetric.textContent,
-                        timeLimit: parsedTimeLimit.textContent,
-                        validationSplit: parsedValidationSplit.textContent,
-                        ensemblingEnabled: parsedEnsembling.textContent === 'Enabled',
-                        keyFeaturesIdentified: parsedKeyFeatures.textContent,
-                        // Add more actual metrics if available from backend later
-                    },
-                    featureImportances: Array.from(featureImportanceList.children).map(li => li.textContent)
-                };
-                const blob = new Blob([JSON.stringify(modelData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `automl_agent_model_summary_${currentJobId}.json`; // Simulate downloading a JSON summary
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showAlert('Model metadata download simulated!');
-            });
-
-
-            copyApiButton.addEventListener('click', () => {
-                const textToCopy = apiEndpointDisplay.textContent;
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    showAlert('API endpoint copied to clipboard!');
-                }).catch(err => {
-                    console.error('Failed to copy text: ', err);
-                    showAlert('Failed to copy. Please copy manually.');
+            // Function to populate model selection cards
+            function populateModelOptions(models) {
+                modelOptionsDiv.innerHTML = ''; // Clear existing options
+                models.forEach(model => {
+                    const modelCard = document.createElement('div');
+                    modelCard.className = 'interactive-model-card bg-white p-4 rounded-lg border border-gray-300 shadow-sm';
+                    modelCard.dataset.algorithm = model.value;
+                    modelCard.innerHTML = `
+                        <h4 class="font-semibold text-gray-900 text-lg mb-2">${model.name}</h4>
+                        <p class="text-sm text-gray-600">Performance: ${model.performance}</p>
+                        <p class="text-sm text-gray-600">Training Time: ${model.time}</p>
+                    `;
+                    modelCard.addEventListener('click', () => {
+                        // Remove 'selected' from all cards
+                        document.querySelectorAll('.interactive-model-card').forEach(card => {
+                            card.classList.remove('selected');
+                        });
+                        // Add 'selected' to the clicked card
+                        modelCard.classList.add('selected');
+                        selectedModelAlgorithm = model.value; // Store selected algorithm
+                        selectModelButton.disabled = false; // Enable select button
+                    });
+                    modelOptionsDiv.appendChild(modelCard);
                 });
+                // Initially disable select button until a model is chosen
+                selectModelButton.disabled = true;
+            }
+
+            // Handle "Select & Continue" button click (after model selection)
+            selectModelButton.addEventListener('click', () => {
+                if (selectedModelAlgorithm) {
+                    statusMessage.textContent = `Finalizing deployment for ${selectedModelAlgorithm}...`;
+                    modelSelectionArea.classList.add('hidden');
+                    loadingSpinner.classList.remove('hidden');
+                    
+                    // Simulate the data that the next poll would return if the model was selected and deployed
+                    const simulatedCompletedData = {
+                        status: "completed",
+                        progress: 100,
+                        api_endpoint: `${FLASK_API_BASE_URL}/predict/${currentJobId}/selected_by_user/`, // Updated API endpoint for selected model
+                        final_metric_value: 0.93, 
+                        model_training_time: 18,
+                        selected_algorithm_name: selectedModelAlgorithm,
+                        feature_importance_values: {
+                            "feature_X": 0.40, "feature_Y": 0.20, "feature_Z": 0.18
+                        }
+                    };
+                    // Manually trigger the completion display logic
+                    clearInterval(pollIntervalId); 
+                    loadingSpinner.classList.add('hidden');
+                    startTrainingButton.disabled = false;
+                    modelSelectionArea.classList.add('hidden'); 
+                    modelOutput.classList.remove('hidden');
+                    apiEndpointDisplay.textContent = simulatedCompletedData.api_endpoint;
+                    statusMessage.textContent = 'Model deployed successfully!';
+                    
+                    summaryContent.innerHTML = `
+                        Selected Algorithm: <span class="font-semibold">${simulatedCompletedData.selected_algorithm_name}</span><br>
+                        Final Metric Value: <span class="font-semibold">${simulatedCompletedData.final_metric_value.toFixed(4)}</span><br>
+                        Training Duration: <span class="font-semibold">${simulatedCompletedData.model_training_time} seconds</span>
+                    `;
+
+                    featureImportanceList.innerHTML = '';
+                    for (const feature in simulatedCompletedData.feature_importance_values) {
+                        const li = document.createElement('li');
+                        li.textContent = `${feature}: ${simulatedCompletedData.feature_importance_values[feature].toFixed(4)}`;
+                        featureImportanceList.appendChild(li);
+                    }
+
+                } else {
+                    showAlert('Please select a model first.');
+                }
             });
 
-            // Highlight active navigation link
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.nav-link');
-            navLinks.forEach(link => {
-                if (link.getAttribute('href') === currentPath) {
-                    link.classList.add('active');
-                    link.classList.remove('border-transparent');
-                    link.classList.add('border-l-blue-600');
+            // Handle "Ensemble & Continue" button click
+            ensembleModelsButton.addEventListener('click', () => {
+                statusMessage.textContent = 'Ensembling models and finalizing deployment...';
+                modelSelectionArea.classList.add('hidden');
+                loadingSpinner.classList.remove('hidden');
+                // Simulate immediate completion for ensembling
+                const simulatedEnsembleData = {
+                    status: "completed",
+                    progress: 100,
+                    api_endpoint: `${FLASK_API_BASE_URL}/predict/${currentJobId}/ensemble/`, // Updated API endpoint for ensemble
+                    final_metric_value: 0.94, 
+                    model_training_time: 25,
+                    selected_algorithm_name: "Ensemble Model",
+                    feature_importance_values: {
+                        "feature_A": 0.30, "feature_B": 0.22, "feature_C": 0.15, "feature_D": 0.10, "feature_E": 0.08
+                    }
+                };
+
+                clearInterval(pollIntervalId);
+                loadingSpinner.classList.add('hidden');
+                startTrainingButton.disabled = false;
+                modelSelectionArea.classList.add('hidden'); 
+                modelOutput.classList.remove('hidden');
+                apiEndpointDisplay.textContent = simulatedEnsembleData.api_endpoint;
+                statusMessage.textContent = 'Ensemble model deployed successfully!';
+                
+                summaryContent.innerHTML = `
+                    Selected Algorithm: <span class="font-semibold">${simulatedEnsembleData.selected_algorithm_name}</span><br>
+                    Final Metric Value: <span class="font-semibold">${simulatedEnsembleData.final_metric_value.toFixed(4)}</span><br>
+                    Training Duration: <span class="font-semibold">${simulatedEnsembleData.model_training_time} seconds</span>
+                `;
+
+                featureImportanceList.innerHTML = '';
+                for (const feature in simulatedEnsembleData.feature_importance_values) {
+                    const li = document.createElement('li');
+                    li.textContent = `${feature}: ${simulatedEnsembleData.feature_importance_values[feature].toFixed(4)}`;
+                    featureImportanceList.appendChild(li);
+                }
+            });
+
+            // Copy API Endpoint to Clipboard
+            copyApiButton.addEventListener('click', () => {
+                const apiEndpoint = apiEndpointDisplay.textContent;
+                if (apiEndpoint && apiEndpoint !== 'N/A') {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = apiEndpoint;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        showAlert('API Endpoint copied to clipboard!');
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        showAlert('Failed to copy. Please copy manually.');
+                    }
+                    document.body.removeChild(textarea);
                 } else {
-                    link.classList.remove('active');
-                    link.classList.remove('border-l-blue-600');
-                    link.classList.add('border-transparent');
+                    showAlert('No API endpoint to copy.');
+                }
+            });
+
+            // --- Download Model Button Logic ---
+            downloadModelButton.addEventListener('click', () => {
+                if (currentJobId) {
+                    // Construct the URL for the Flask download endpoint
+                    const downloadUrl = `${FLASK_API_BASE_URL}/api/download_model/${currentJobId}`;
+                    console.log('Attempting to download model from:', downloadUrl);
+                    // Trigger the download by setting window.location.href
+                    window.location.href = downloadUrl;
+                    showAlert('Model download initiated!');
+                } else {
+                    showAlert('No active training job to download a model from.');
                 }
             });
         });
